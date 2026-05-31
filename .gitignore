@@ -1,0 +1,27 @@
+# secrets / env
+.env
+.env.*
+!.env.example
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# node
+node_modules/
+dist/
+.vite/
+
+# data / qlib
+data/
+qlib_data/
+*.sqlite
+*.db
+
+# os / editor
+.DS_Store
+.idea/
+.vscode/
