@@ -48,3 +48,11 @@ Date: 2026-06-02. Host: Debian bookworm (OpenClaw workspace), x86_64.
 | docker | ❌ absent → native PG or managed URL |
 
 **Gate result: PASS** — qlib imports, tushare+adj_factor verified. Cleared to proceed to Phase B data tasks.
+
+## Post-build finding — qlib `dump_bin` (Task 11 Step 3)
+- `python -m qlib.scripts.dump_bin` → **ModuleNotFoundError: No module named 'qlib.scripts'**.
+- pyqlib 0.9.7 pip package ships **no `dump_bin` script and no `qlib` CLI** (verified: no `*dump*` under the package, no `qlib` in `.venv/bin`).
+- `dump_bin.py` lives only in the qlib GitHub repo `scripts/` dir, not on PyPI.
+- **Resolution / TODO (deferred, not MVP-critical):** when the qlib-backed price provider is built (replacing `DictPriceProvider`), fetch `scripts/dump_bin.py` from `github.com/microsoft/qlib` and run it standalone, e.g.
+  `python dump_bin.py dump_all --csv_path ./data/qlib_cn/csv --qlib_dir ./data/qlib_cn --include_fields open,high,low,close,volume,factor --date_field_name date`.
+- **CSV pipeline itself is verified** (Task 11 backfill): 600519.SH + 000001.SZ, 581 bars each, columns `date,open,high,low,close,volume,factor`, raw prices + adj_factor. Only the bin conversion is deferred.
