@@ -15,9 +15,11 @@ node_modules/
 dist/
 .vite/
 
-# data / qlib
-data/
+# data / qlib (qlib data dir is backend/data/qlib_cn; do NOT ignore app/data source pkg)
+/backend/data/
+/data/
 qlib_data/
+qlib_cn/
 *.sqlite
 *.db
 
