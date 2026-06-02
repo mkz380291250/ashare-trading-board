@@ -40,6 +40,14 @@ THEMES = {
             "601126.SH", "600886.SH"],
 }
 
+# Prefer the full membership cache (eastmoney/tushare) if it exists.
+import json as _json
+_cache = Path("/tmp/theme_members.json")
+if _cache.exists():
+    _m = _json.loads(_cache.read_text())
+    if _m and sum(len(v) for v in _m.values()) > 0:
+        THEMES = _m
+
 
 def main():
     s = get_settings()
