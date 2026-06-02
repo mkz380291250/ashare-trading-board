@@ -1,5 +1,10 @@
 import argparse
+import sys
+from pathlib import Path
 from datetime import date
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # make `app` importable
+
 from app.config import get_settings
 from app.data.tushare_source import TushareSource
 from app.data.qlib_store import write_instrument_csv

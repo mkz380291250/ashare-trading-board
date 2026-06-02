@@ -1,7 +1,12 @@
 """Incremental: fetch latest trading day bars, append CSVs, then mark-to-market.
 Mark-to-market is invoked from the broker (Task 13) once accounts exist."""
 import argparse
+import sys
+from pathlib import Path
 from datetime import date, timedelta
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # make `app` importable
+
 from app.config import get_settings
 from app.data.tushare_source import TushareSource
 from app.data.qlib_store import write_instrument_csv

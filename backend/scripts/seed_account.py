@@ -1,3 +1,8 @@
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # make `app` importable
+
 from app.api.deps import get_session
 from app.db.models import Account
 from app.config import get_settings
