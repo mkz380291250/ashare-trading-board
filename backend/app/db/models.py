@@ -69,3 +69,16 @@ Index("ix_daily_quotes_trade_date", DailyQuote.trade_date)
 class IngestedDay(Base):
     __tablename__ = "ingested_days"
     trade_date: Mapped[date] = mapped_column(Date, primary_key=True)
+
+
+class DiscoveryPick(Base):
+    __tablename__ = "discovery_picks"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    as_of: Mapped[date] = mapped_column(Date)
+    code: Mapped[str] = mapped_column(String(16))
+    rank: Mapped[int] = mapped_column(Integer)
+    score: Mapped[float] = mapped_column(Float)
+    factors: Mapped[str] = mapped_column(String, default="{}")  # JSON text
+
+
+Index("ix_discovery_picks_as_of", DiscoveryPick.as_of)
