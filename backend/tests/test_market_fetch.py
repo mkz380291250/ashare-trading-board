@@ -14,8 +14,10 @@ class FakePro:
         })
 
     def daily_basic(self, trade_date):
+        # tushare daily_basic ALSO returns close/open etc. -> must not collide
         return pd.DataFrame({
             "ts_code": ["600519.SH", "000001.SZ"],
+            "close": [9999.0, 9999.0],  # decoy: must be ignored (daily wins)
             "turnover_rate": [0.6, 1.1], "volume_ratio": [1.2, 0.9],
             "circ_mv": [1.0e9, 2.0e8], "total_mv": [1.6e9, 3.0e8],
             "pe": [30.0, 5.0], "pb": [9.0, 0.6],

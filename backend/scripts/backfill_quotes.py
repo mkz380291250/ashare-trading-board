@@ -55,6 +55,7 @@ def main():
             store.mark_ingested(d)
             print(f"[{i}/{len(todo)}] {d}: {len(rows)} rows", flush=True)
         except Exception as e:  # leave day un-ingested -> retried next run
+            session.rollback()  # clear failed transaction so next day is not poisoned
             print(f"[{i}/{len(todo)}] {d}: ERROR {e!r} (will retry next run)", flush=True)
     print("BACKFILL_DONE", flush=True)
 
