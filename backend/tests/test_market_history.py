@@ -19,7 +19,8 @@ def test_history_builds_per_code_window(session):
     a = hist["A"]
     assert a.closes == [10.0, 11.0, 12.0]   # ascending up to as_of
     assert a.highs == [11.0, 12.0, 13.0]
-    assert a.turnover == 2.0 and a.vol_ratio == 1.5  # from the as_of row
+    assert a.volumes == [100.0, 100.0, 100.0]  # from r.vol
+    assert a.turnover == 2.0                    # turnover_rate from the as_of row
 
 
 def test_history_only_includes_codes_present_on_as_of(session):

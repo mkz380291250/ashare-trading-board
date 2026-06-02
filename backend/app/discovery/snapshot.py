@@ -6,10 +6,10 @@ from datetime import date
 @dataclass(frozen=True)
 class StockData:
     code: str
-    closes: list[float]   # ascending, ending on as_of
-    highs: list[float]    # ascending, ending on as_of
+    closes: list[float]    # ascending, ending on as_of
+    highs: list[float]     # ascending, ending on as_of
+    volumes: list[float]   # ascending, ending on as_of (for computed 量比)
     turnover: float | None
-    vol_ratio: float | None
 
 
 class MarketHistory(ABC):
@@ -39,7 +39,7 @@ class QuoteStoreMarketHistory(MarketHistory):
                 code=code,
                 closes=[r.close for r in rs],
                 highs=[r.high for r in rs],
+                volumes=[r.vol for r in rs],
                 turnover=rs[-1].turnover_rate,
-                vol_ratio=rs[-1].volume_ratio,
             )
         return out

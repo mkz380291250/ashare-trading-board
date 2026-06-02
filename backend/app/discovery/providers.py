@@ -24,6 +24,10 @@ class MomentumProvider(SignalProvider):
                     out["breakout"][code] = s.closes[-1] / hi
             if s.turnover is not None:
                 out["turnover"][code] = s.turnover
-            if s.vol_ratio is not None:
-                out["vol_ratio"][code] = s.vol_ratio
+            # 量比: today's volume vs the prior 5-day average (daily_basic's
+            # volume_ratio is null historically, so compute it from volume).
+            if len(s.volumes) >= 6:
+                prev_avg = sum(s.volumes[-6:-1]) / 5.0
+                if prev_avg > 0:
+                    out["vol_ratio"][code] = s.volumes[-1] / prev_avg
         return out

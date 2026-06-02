@@ -11,7 +11,8 @@ class FakeHistory(MarketHistory):
     def load(self, as_of, window=20):
         def s(code, base):
             closes = [base + i for i in range(6)]
-            return StockData(code, closes, closes, turnover=base, vol_ratio=base / 10)
+            vols = [100.0] * 5 + [100.0 + base]  # 量比 = (100+base)/100, distinct per code
+            return StockData(code, closes, closes, vols, turnover=base)
         return {c: s(c, b) for c, b in [("A", 10), ("B", 20), ("C", 30)]}
 
 
