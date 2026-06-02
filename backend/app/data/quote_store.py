@@ -26,6 +26,20 @@ class QuoteStore:
             select(DailyQuote).where(DailyQuote.trade_date == trade_date)
         ).all())
 
+    def trading_dates(self, end: date, limit: int) -> list[date]:
+        rows = self.s.scalars(
+            select(DailyQuote.trade_date).where(DailyQuote.trade_date <= end)
+            .distinct().order_by(DailyQuote.trade_date.desc()).limit(limit)
+        ).all()
+        return sorted(rows)
+
+    def get_range(self, start: date, end: date) -> list[DailyQuote]:
+        return list(self.s.scalars(
+            select(DailyQuote).where(
+                DailyQuote.trade_date >= start, DailyQuote.trade_date <= end
+            ).order_by(DailyQuote.code, DailyQuote.trade_date)
+        ).all())
+
     def get_bars(self, code: str, start: date, end: date) -> list[DailyBar]:
         rows = self.s.scalars(
             select(DailyQuote).where(
