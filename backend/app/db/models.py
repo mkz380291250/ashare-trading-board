@@ -69,3 +69,17 @@ Index("ix_daily_quotes_trade_date", DailyQuote.trade_date)
 class IngestedDay(Base):
     __tablename__ = "ingested_days"
     trade_date: Mapped[date] = mapped_column(Date, primary_key=True)
+
+
+class WatchPoolEntry(Base):
+    __tablename__ = "watch_pool"
+    code: Mapped[str] = mapped_column(String(16), primary_key=True)
+    first_selected_on: Mapped[date] = mapped_column(Date, primary_key=True)
+    theme: Mapped[str] = mapped_column(String(32))
+    entry_close: Mapped[float] = mapped_column(Float)
+    trigger: Mapped[str] = mapped_column(String, default="{}")  # JSON text
+    ret_t1: Mapped[float | None] = mapped_column(Float, nullable=True)
+    ret_t3: Mapped[float | None] = mapped_column(Float, nullable=True)
+    ret_t5: Mapped[float | None] = mapped_column(Float, nullable=True)
+    ret_t10: Mapped[float | None] = mapped_column(Float, nullable=True)
+    last_updated: Mapped[date | None] = mapped_column(Date, nullable=True)
