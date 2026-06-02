@@ -1,4 +1,7 @@
-const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000";
+// Default to the backend on :8000 of whatever host served the page, so external
+// access works (browser reaches <host>:8000). Override with VITE_API_BASE if needed.
+const BASE = import.meta.env.VITE_API_BASE ??
+  `${window.location.protocol}//${window.location.hostname}:8000`;
 
 export async function apiGet<T>(path: string): Promise<T> {
   const r = await fetch(`${BASE}${path}`);

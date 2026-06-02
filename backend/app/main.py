@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 def create_app() -> FastAPI:
     app = FastAPI(title="A-Share Trading Board")
     app.add_middleware(
-        CORSMiddleware, allow_origins=["http://localhost:5173"],
+        CORSMiddleware, allow_origins=["*"],
         allow_methods=["*"], allow_headers=["*"],
     )
 
