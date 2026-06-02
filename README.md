@@ -82,11 +82,31 @@ CSVs land under `backend/data/qlib_cn/csv/` with columns
 > qlib-backed price provider is built. Not required for the MVP (price provider is
 > a placeholder). See `docs/superpowers/plans/spike-notes.md`.
 
+## Historical quote database
+
+Whole-market ~5y daily history in `daily_quotes` (raw OHLCV + adj_factor +
+daily_basic metrics), with an `ingested_days` progress gate.
+
+```bash
+cd backend
+# resumable, rate-limited (<=100 tushare calls/min); just rerun to resume
+.venv/bin/python scripts/backfill_quotes.py --start 20210101 --max-per-min 100
+# daily incremental update
+.venv/bin/python scripts/daily_update_quotes.py --days 7
+```
+
+Resumable + idempotent: each trade date is fetched whole-market
+(`daily` + `daily_basic` + `adj_factor`), upserted, then marked ingested; a
+killed run continues from the break point on rerun. Read via
+`app/data/quote_store.py::QuoteStore` (returns `DailyBar`s; apply
+`to_qfq`/`to_hfq` from `app/data/adjust.py`). The discovery engine reads from
+this DB instead of fetching tushare at scan time.
+
 ## Running tests
 
 ```bash
 cd backend
-.venv/bin/python -m pytest -q     # 19 tests
+.venv/bin/python -m pytest -q     # 29 tests
 ```
 
 ## Key design constraints
