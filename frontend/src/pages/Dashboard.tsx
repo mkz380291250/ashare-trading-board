@@ -3,6 +3,7 @@ import { apiGet } from "../api/client";
 import { PositionsTable } from "../components/PositionsTable";
 import { EquityChart } from "../components/EquityChart";
 import { TradeForm } from "../components/TradeForm";
+import { DiscoveryPanel } from "../components/DiscoveryPanel";
 
 type Account = { id: number; name: string; cash: number;
   positions: { code: string; shares: number; cost: number }[] };
@@ -30,6 +31,8 @@ export function Dashboard() {
       <PositionsTable positions={acc.positions} />
       <h2>净值曲线</h2>
       <EquityChart points={eq} />
+      <h2>机会榜 Top-8</h2>
+      <DiscoveryPanel />
     </div>
   );
 }
