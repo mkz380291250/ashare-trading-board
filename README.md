@@ -102,11 +102,30 @@ killed run continues from the break point on rerun. Read via
 `to_qfq`/`to_hfq` from `app/data/adjust.py`). The discovery engine reads from
 this DB instead of fetching tushare at scan time.
 
+## Discovery engine (机会榜)
+
+Daily whole-market scan scoring price/volume momentum — mom_5d (5-day return),
+turnover (turnover_rate), vol_ratio (量比, computed as today's volume ÷ prior-5-day
+average since tushare's historical `volume_ratio` is null), and breakout
+(close ÷ 20-day high). Each factor is percentile-normalized, equal-weighted, and
+the Top-8 are persisted to `discovery_picks`. Reads the historical quote DB via
+`QuoteStore` (no tushare at scan time).
+
+```bash
+cd backend
+.venv/bin/python scripts/run_discovery.py            # latest date in DB
+.venv/bin/python scripts/run_discovery.py --date 2026-05-29
+```
+
+Surfaced at `GET /api/discovery` (latest, or `?date=YYYY-MM-DD`) and the dashboard
+机会榜 panel. Pluggable `SignalProvider` — slice-4 qualitative / money-flow signals
+slot in as more providers without rework.
+
 ## Running tests
 
 ```bash
 cd backend
-.venv/bin/python -m pytest -q     # 29 tests
+.venv/bin/python -m pytest -q     # 43 tests
 ```
 
 ## Key design constraints
