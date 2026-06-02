@@ -7,7 +7,10 @@ Base = declarative_base()
 
 def make_engine(url: str | None = None):
     settings = get_settings()
-    return create_engine(url or settings.database_url, future=True)
+    u = url or settings.database_url
+    # sqlite + threaded server (uvicorn/TestClient) needs check_same_thread=False
+    connect_args = {"check_same_thread": False} if u.startswith("sqlite") else {}
+    return create_engine(u, future=True, connect_args=connect_args)
 
 
 def make_session_factory(engine):
