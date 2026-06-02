@@ -1,5 +1,5 @@
 from datetime import date
-from sqlalchemy import String, Float, Integer, Date, ForeignKey
+from sqlalchemy import String, Float, Integer, Date, ForeignKey, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.database import Base
 
@@ -41,3 +41,31 @@ class EquitySnapshot(Base):
     cash: Mapped[float] = mapped_column(Float)
     market_value: Mapped[float] = mapped_column(Float)
     total: Mapped[float] = mapped_column(Float)
+
+
+class DailyQuote(Base):
+    __tablename__ = "daily_quotes"
+    code: Mapped[str] = mapped_column(String(16), primary_key=True)
+    trade_date: Mapped[date] = mapped_column(Date, primary_key=True)
+    open: Mapped[float] = mapped_column(Float)
+    high: Mapped[float] = mapped_column(Float)
+    low: Mapped[float] = mapped_column(Float)
+    close: Mapped[float] = mapped_column(Float)
+    pre_close: Mapped[float | None] = mapped_column(Float, nullable=True)
+    vol: Mapped[float] = mapped_column(Float)
+    amount: Mapped[float | None] = mapped_column(Float, nullable=True)
+    adj_factor: Mapped[float] = mapped_column(Float, default=1.0)
+    turnover_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
+    volume_ratio: Mapped[float | None] = mapped_column(Float, nullable=True)
+    circ_mv: Mapped[float | None] = mapped_column(Float, nullable=True)
+    total_mv: Mapped[float | None] = mapped_column(Float, nullable=True)
+    pe: Mapped[float | None] = mapped_column(Float, nullable=True)
+    pb: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+
+Index("ix_daily_quotes_trade_date", DailyQuote.trade_date)
+
+
+class IngestedDay(Base):
+    __tablename__ = "ingested_days"
+    trade_date: Mapped[date] = mapped_column(Date, primary_key=True)
