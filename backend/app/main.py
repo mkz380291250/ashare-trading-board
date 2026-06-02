@@ -13,9 +13,10 @@ def create_app() -> FastAPI:
     def health():
         return {"status": "ok"}
 
-    from app.api import routes_account, routes_trade
+    from app.api import routes_account, routes_trade, routes_market
     app.include_router(routes_account.router)
     app.include_router(routes_trade.router)
+    app.include_router(routes_market.router)
 
     return app
 
