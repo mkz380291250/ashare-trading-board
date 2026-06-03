@@ -15,7 +15,7 @@ def create_app() -> FastAPI:
 
     from app.api import (routes_account, routes_trade, routes_market,
                          routes_discovery, routes_decisions, routes_screener,
-                         routes_research, routes_backtest)
+                         routes_research, routes_backtest, routes_tracklist)
     app.include_router(routes_account.router)
     app.include_router(routes_trade.router)
     app.include_router(routes_market.router)
@@ -24,6 +24,7 @@ def create_app() -> FastAPI:
     app.include_router(routes_screener.router)
     app.include_router(routes_research.router)
     app.include_router(routes_backtest.router)
+    app.include_router(routes_tracklist.router)
 
     return app
 
