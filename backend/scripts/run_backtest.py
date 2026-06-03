@@ -17,6 +17,7 @@ from app.backtest.scores import build_score_frame
 from app.backtest.factor import build_forward_returns, factor_report
 from app.backtest.strategy import run_strategy_backtest
 from app.backtest.symbols import to_qlib_symbol, from_qlib_symbol
+from app.backtest.store import BacktestStore
 
 
 def main():
@@ -25,6 +26,7 @@ def main():
     p.add_argument("--window", type=int, default=20)
     p.add_argument("--start", default=None)
     p.add_argument("--end", default=None)
+    p.add_argument("--no-save", action="store_true")
     args = p.parse_args()
 
     session = make_session_factory(make_engine())()
@@ -62,6 +64,12 @@ def main():
     init_qlib(args.qlib_dir)
     bt = run_strategy_backtest(score, start=start, end=end)
     print("STRATEGY:", bt, flush=True)
+    if not args.no_save:
+        BacktestStore(session).save(
+            signal="momentum", start=start, end=end,
+            params={"topk": 8, "window": args.window},
+            strategy_metrics=bt, factor_report=rep, created_at=date.today())
+        print("SAVED backtest run", flush=True)
     print("BACKTEST_DONE", flush=True)
 
 
