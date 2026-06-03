@@ -26,3 +26,13 @@ def test_latest_returns_most_recent_date(session):
 
 def test_latest_none_when_absent(session):
     assert ResearchStore(session).latest("000001.SZ") is None
+
+
+def test_list_latest_one_per_code_newest(session):
+    st = ResearchStore(session)
+    st.upsert("600519.SH", date(2026, 6, 1), AnalyzedNote(0.1, "", "old"), "s")
+    st.upsert("600519.SH", date(2026, 6, 3), AnalyzedNote(0.5, "", "new"), "s")
+    st.upsert("000001.SZ", date(2026, 6, 2), AnalyzedNote(0.2, "", "x"), "s")
+    rows = st.list_latest(10)
+    assert [r.code for r in rows] == ["600519.SH", "000001.SZ"]
+    assert rows[0].summary == "new"

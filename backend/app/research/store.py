@@ -31,3 +31,17 @@ class ResearchStore:
         return self.s.scalar(
             select(ResearchNote).where(ResearchNote.code == code)
             .order_by(ResearchNote.as_of.desc()).limit(1))
+
+    def list_latest(self, limit: int = 50) -> list:
+        """每只股取最新一条笔记,按 as_of 倒序,最多 limit 条。"""
+        rows = self.s.scalars(
+            select(ResearchNote).order_by(ResearchNote.as_of.desc())).all()
+        seen, out = set(), []
+        for r in rows:
+            if r.code in seen:
+                continue
+            seen.add(r.code)
+            out.append(r)
+            if len(out) >= limit:
+                break
+        return out

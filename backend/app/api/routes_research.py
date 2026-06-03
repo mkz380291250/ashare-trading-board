@@ -6,6 +6,14 @@ from app.research.store import ResearchStore
 router = APIRouter(prefix="/api", tags=["research"])
 
 
+@router.get("/research")
+def list_research(s: Session = Depends(get_session)):
+    return [{"code": n.code, "as_of": n.as_of.isoformat(),
+             "sentiment": n.sentiment, "rating_consensus": n.rating_consensus,
+             "summary": n.summary, "source": n.source}
+            for n in ResearchStore(s).list_latest(50)]
+
+
 @router.get("/research/{code}")
 def get_research(code: str, s: Session = Depends(get_session)):
     note = ResearchStore(s).latest(code)
