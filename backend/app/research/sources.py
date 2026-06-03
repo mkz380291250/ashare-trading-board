@@ -62,3 +62,40 @@ class TushareResearchSource(ResearchSource):
         except Exception:
             pass
         return items
+
+
+def _em_default_fetch(code: str) -> list[dict]:
+    """生产用:requests 抓 eastmoney 个股资讯。失败抛异常由调用方吞。
+    (端点细节留待联调;沿用 screener 的 requests+重试模式。)"""
+    raise NotImplementedError("wire real eastmoney endpoint during smoke task")
+
+
+class EastMoneyNewsSource(ResearchSource):
+    def __init__(self, fetch_fn=_em_default_fetch):
+        self.fetch_fn = fetch_fn
+
+    def fetch(self, code: str, as_of: date) -> list[ResearchItem]:
+        try:
+            rows = self.fetch_fn(code) or []
+        except Exception:
+            return []
+        return [ResearchItem(
+            title=str(r.get("title") or ""), text=str(r.get("content") or ""),
+            date=str(r.get("date") or ""), source="eastmoney") for r in rows]
+
+
+class CompositeSource(ResearchSource):
+    def __init__(self, sources: list[ResearchSource]):
+        self.sources = sources
+
+    def fetch(self, code: str, as_of: date) -> list[ResearchItem]:
+        seen: set[tuple] = set()
+        out: list[ResearchItem] = []
+        for s in self.sources:
+            for it in s.fetch(code, as_of):
+                key = (it.title, it.text)
+                if key in seen:
+                    continue
+                seen.add(key)
+                out.append(it)
+        return out
