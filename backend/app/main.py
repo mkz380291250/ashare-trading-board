@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.config import get_settings
+
 
 def create_app() -> FastAPI:
     app = FastAPI(title="A-Share Trading Board")
@@ -25,6 +27,14 @@ def create_app() -> FastAPI:
     app.include_router(routes_research.router)
     app.include_router(routes_backtest.router)
     app.include_router(routes_tracklist.router)
+
+    settings = get_settings()
+    if settings.enable_scheduler:
+        from app.scheduler import start_scheduler
+        from scripts.daily_full import run_all
+        app.state.scheduler = start_scheduler(
+            run_all, hour=settings.daily_update_hour,
+            minute=settings.daily_update_minute)
 
     return app
 

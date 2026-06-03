@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     debate_rounds: int = 2
     research_llm: str = "local"            # local | deepseek
     research_max_per_min: int = 50         # tushare 研报接口限流(保守)
+    enable_scheduler: bool = False         # 默认关,生产/部署时置 True
+    daily_update_hour: int = 16            # 北京时间 16:00
+    daily_update_minute: int = 0
 
 
 def get_settings() -> Settings:
