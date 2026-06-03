@@ -53,3 +53,11 @@ def test_scorer_sparse_factor_neutral_does_not_penalize():
     }
     picks = DiscoveryScorer(top_n=3).score(factors)
     assert picks[0][0] == "c"  # 有正研报的 c 排第一
+
+
+def test_score_all_returns_full_universe_untruncated():
+    factors = {"f1": {"a": 1.0, "b": 2.0, "c": 3.0, "d": 4.0}}
+    full = DiscoveryScorer(top_n=2).score_all(factors)
+    assert [p[0] for p in full] == ["d", "c", "b", "a"]   # 全量,降序,不截断
+    # score() 仍按 top_n 截断(回归)
+    assert [p[0] for p in DiscoveryScorer(top_n=2).score(factors)] == ["d", "c"]

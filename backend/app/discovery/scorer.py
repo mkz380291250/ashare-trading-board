@@ -14,10 +14,8 @@ class DiscoveryScorer:
         self.top_n = top_n
         self.weights = weights
 
-    def score(self, factors: dict[str, dict[str, float]]):
-        """factors: {factor_name: {code: raw}}. 并集所有 code;某 code 缺某
-        因子时,该因子百分位按中性 0.5 计入。返回 (code, total, {factor: raw})
-        按总分降序,截断 top_n。raw 只含该 code 实际拥有的因子。"""
+    def score_all(self, factors: dict[str, dict[str, float]]):
+        """同 score() 但不按 top_n 截断,返回全市场 (code, total, raw) 降序。"""
         if not factors:
             return []
         names = list(factors.keys())
@@ -32,4 +30,8 @@ class DiscoveryScorer:
             raw = {n: factors[n][code] for n in names if code in factors[n]}
             scored.append((code, total, raw))
         scored.sort(key=lambda x: x[1], reverse=True)
-        return scored[: self.top_n]
+        return scored
+
+    def score(self, factors: dict[str, dict[str, float]]):
+        """全市场打分后截断到 top_n。"""
+        return self.score_all(factors)[: self.top_n]
