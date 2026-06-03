@@ -49,6 +49,13 @@ def run_strategy_backtest(score_frame: pd.DataFrame, *, start, end,
         executor=executor_config, benchmark=benchmark, account=account,
         exchange_kwargs=exchange_kwargs)
     report_normal, _positions = portfolio_metric_dict["1day"]
-    excess = report_normal["return"] - report_normal["bench"]
-    analysis = risk_analysis(excess, freq="day")
+    # annualized_return / max_drawdown 取策略自身收益曲线;information_ratio
+    # 取超额(策略-基准)曲线 —— 否则前两者会被算成 alpha/超额回撤,名实不符。
+    strat = risk_analysis(report_normal["return"], freq="day")
+    excess = risk_analysis(report_normal["return"] - report_normal["bench"], freq="day")
+    analysis = pd.DataFrame({"risk": {
+        "annualized_return": strat.loc["annualized_return", "risk"],
+        "max_drawdown": strat.loc["max_drawdown", "risk"],
+        "information_ratio": excess.loc["information_ratio", "risk"],
+    }})
     return summarize_report(report_normal, analysis)
