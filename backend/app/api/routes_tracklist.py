@@ -26,6 +26,9 @@ def _row(e):
             "ret_t5": e.ret_t5, "ret_t10": e.ret_t10, "last_close": e.last_close,
             "ret_since": e.ret_since, "max_gain": e.max_gain,
             "max_drawdown": e.max_drawdown, "signal": e.signal,
+            "buy_price": e.buy_price,
+            "buy_return": (e.last_close / e.buy_price - 1.0)
+                          if (e.buy_price and e.last_close) else None,
             "last_updated": e.last_updated.isoformat() if e.last_updated else None}
 
 

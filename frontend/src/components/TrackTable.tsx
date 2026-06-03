@@ -1,4 +1,5 @@
 import { Table, Empty, Button, Tag } from "antd";
+import type { ColumnsType } from "antd/es/table";
 
 export type Track = {
   code: string; name: string; added_on: string; entry_close: number;
@@ -6,7 +7,8 @@ export type Track = {
   ret_t5: number | null; ret_t10: number | null;
   last_close: number | null; ret_since: number | null;
   max_gain: number | null; max_drawdown: number | null;
-  signal: string; last_updated: string | null;
+  signal: string; buy_price: number | null; buy_return: number | null;
+  last_updated: string | null;
 };
 
 const pct = (v: number | null) => (v == null ? "-" : `${(v * 100).toFixed(1)}%`);
@@ -16,15 +18,18 @@ export function TrackTable(
   { rows, onRemove }: { rows: Track[]; onRemove: (code: string, on: string) => void },
 ) {
   if (!rows.length) return <Empty description="暂无跟踪标的" />;
-  const columns = [
-    { title: "信号", dataIndex: "signal", key: "sig",
+  const columns: ColumnsType<Track> = [
+    { title: "信号", dataIndex: "signal", key: "sig", width: 64, fixed: "left",
       render: (v: string) => (v === "buy" ? <Tag color="red">买入</Tag> : "-") },
-    { title: "代码", dataIndex: "code", key: "code" },
-    { title: "名称", dataIndex: "name", key: "name" },
-    { title: "入选日", dataIndex: "added_on", key: "d" },
-    { title: "入选价", dataIndex: "entry_close", key: "ep", render: num },
-    { title: "最新", dataIndex: "last_close", key: "lc", render: num },
-    { title: "至今", dataIndex: "ret_since", key: "rs", render: pct },
+    { title: "代码", dataIndex: "code", key: "code", width: 96, fixed: "left" },
+    { title: "名称", dataIndex: "name", key: "name", width: 96, fixed: "left",
+      onCell: () => ({ style: { whiteSpace: "nowrap" } }) },
+    { title: "入选日", dataIndex: "added_on", key: "d", width: 104 },
+    { title: "入选价", dataIndex: "entry_close", key: "ep", width: 80, render: num },
+    { title: "买入价", dataIndex: "buy_price", key: "bp", width: 80, render: num },
+    { title: "买入收益", dataIndex: "buy_return", key: "br", width: 88, render: pct },
+    { title: "最新", dataIndex: "last_close", key: "lc", width: 80, render: num },
+    { title: "至今", dataIndex: "ret_since", key: "rs", width: 72, render: pct },
     { title: "T+1", dataIndex: "ret_t1", key: "t1", render: pct },
     { title: "T+3", dataIndex: "ret_t3", key: "t3", render: pct },
     { title: "T+5", dataIndex: "ret_t5", key: "t5", render: pct },
@@ -42,5 +47,5 @@ export function TrackTable(
   ];
   return <Table rowKey={(r) => `${r.code}-${r.added_on}`} size="small"
                 pagination={false} dataSource={rows} columns={columns}
-                scroll={{ x: true }} />;
+                scroll={{ x: "max-content" }} />;
 }

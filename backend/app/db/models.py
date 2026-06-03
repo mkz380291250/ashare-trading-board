@@ -168,3 +168,4 @@ class TrackEntry(Base):
     max_drawdown: Mapped[float | None] = mapped_column(Float, nullable=True)
     last_updated: Mapped[date | None] = mapped_column(Date, nullable=True)
     signal: Mapped[str] = mapped_column(String(8), default="")  # "" | "buy" 等手动/规则标记
+    buy_price: Mapped[float | None] = mapped_column(Float, nullable=True)  # 买入成本价(如 -7% 限价)
