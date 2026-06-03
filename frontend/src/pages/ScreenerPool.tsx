@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Card } from "antd";
 import { apiGet } from "../api/client";
 import { PicksTable } from "../components/PicksTable";
 
@@ -13,10 +14,5 @@ export function ScreenerPool() {
   useEffect(() => {
     apiGet<Pick[]>("/api/screener/picks").then(setPicks).catch(() => {});
   }, []);
-  return (
-    <div style={{ padding: 24 }}>
-      <h1>选股池</h1>
-      <PicksTable picks={picks} />
-    </div>
-  );
+  return <Card title="题材选股池(T+1/3/5/10 追踪)"><PicksTable picks={picks} /></Card>;
 }
