@@ -140,11 +140,29 @@ Surfaced at `GET /api/decisions`, `POST /api/decisions/{id}/approve|reject`, and
 dashboard 决策 panel. The 研报/新闻 analyst is a stub fed empty until slice 4 wires
 scraped research reports.
 
+## Theme screener & watch pool
+
+Separate feature (module `app/screener/`) that **shares the data layer**. Daily
+screen of hot-theme stocks (英伟达算力链 / 半导体芯片 / 算力 / 电力) that:
+printed a **>7% bullish candle** in the last 3 trading days, have **net-profit
+YoY ≥20% & revenue YoY >0**, and are **not extended** (≤85% of the 52-week high
+AND 60-day return <50%). Picks enter a **watch pool** tracked at T+1/3/5/10.
+
+```bash
+cd backend
+.venv/bin/python scripts/run_screener.py   # after the historical DB is populated
+```
+
+Themes resolve from tushare concept indices (`ths_index`/`ths_member`) by keyword
+(fallback: `StaticThemeSource` curated lists). Earnings from `fina_indicator`.
+Bars come from the shared historical quote DB via `QuoteStore`. Results surface at
+`GET /api/screener/picks` and the frontend **选股池** tab.
+
 ## Running tests
 
 ```bash
 cd backend
-.venv/bin/python -m pytest -q     # 62 tests
+.venv/bin/python -m pytest -q     # 108 tests (62 board + 46 screener)
 ```
 
 ## Key design constraints

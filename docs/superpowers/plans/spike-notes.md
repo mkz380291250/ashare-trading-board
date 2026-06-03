@@ -56,3 +56,11 @@ Date: 2026-06-02. Host: Debian bookworm (OpenClaw workspace), x86_64.
 - **Resolution / TODO (deferred, not MVP-critical):** when the qlib-backed price provider is built (replacing `DictPriceProvider`), fetch `scripts/dump_bin.py` from `github.com/microsoft/qlib` and run it standalone, e.g.
   `python dump_bin.py dump_all --csv_path ./data/qlib_cn/csv --qlib_dir ./data/qlib_cn --include_fields open,high,low,close,volume,factor --date_field_name date`.
 - **CSV pipeline itself is verified** (Task 11 backfill): 600519.SH + 000001.SZ, 581 bars each, columns `date,open,high,low,close,volume,factor`, raw prices + adj_factor. Only the bin conversion is deferred.
+
+## Theme screener spike (2026-06-02)
+- `pro.ths_index()` → **(1725, 6)** concepts/industries available (cols: ts_code,name,count,exchange,list_date,type).
+- `pro.ths_member(ts_code=...)` → member stocks available (sample 883300.TI → 300 rows).
+- `pro.fina_indicator(...)` → **(1, 108)** incl. netprofit_yoy / or_yoy etc.
+- **Result: concept + earnings APIs are NOT gated at the user's points level.**
+  → screener can use `TushareThemeSource` (auto membership), not just the static fallback.
+  Map each theme to its ths_index `ts_code` (filter `ths_index` by name).

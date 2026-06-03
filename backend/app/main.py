@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 def create_app() -> FastAPI:
     app = FastAPI(title="A-Share Trading Board")
     app.add_middleware(
-        CORSMiddleware, allow_origins=["http://localhost:5173"],
+        CORSMiddleware, allow_origins=["*"],
         allow_methods=["*"], allow_headers=["*"],
     )
 
@@ -14,12 +14,13 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     from app.api import (routes_account, routes_trade, routes_market,
-                         routes_discovery, routes_decisions)
+                         routes_discovery, routes_decisions, routes_screener)
     app.include_router(routes_account.router)
     app.include_router(routes_trade.router)
     app.include_router(routes_market.router)
     app.include_router(routes_discovery.router)
     app.include_router(routes_decisions.router)
+    app.include_router(routes_screener.router)
 
     return app
 
