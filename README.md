@@ -194,7 +194,7 @@ Surfaced at `GET /api/research/{code}`.
 
 ```bash
 cd backend
-.venv/bin/python -m pytest -q     # 111 tests (board + screener + research)
+.venv/bin/python -m pytest -q     # 110 tests (board + screener + research)
 ```
 
 ## Key design constraints

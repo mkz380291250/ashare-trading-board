@@ -16,6 +16,7 @@ class ResearchRunner:
                 src = getattr(items[0], "source", "none") if items else "none"
                 self.store.upsert(code, as_of, note, src)
                 n += 1
-            except Exception:
-                continue  # 单只失败不阻断其余
+            except Exception as e:  # 单只失败不阻断其余,但留痕便于排查
+                print(f"SKIP {code}: {type(e).__name__}: {e}", flush=True)
+                continue
         return n

@@ -24,12 +24,5 @@ def test_latest_returns_most_recent_date(session):
     assert st.latest("000001.SZ").summary == "new"
 
 
-def test_latest_map_and_missing(session):
-    st = ResearchStore(session)
-    st.upsert("000001.SZ", date(2026, 6, 3), AnalyzedNote(0.2, "", "x"), "s")
-    m = st.latest_map(["000001.SZ", "999999.SZ"])
-    assert "000001.SZ" in m and "999999.SZ" not in m
-
-
 def test_latest_none_when_absent(session):
     assert ResearchStore(session).latest("000001.SZ") is None

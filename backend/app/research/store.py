@@ -31,11 +31,3 @@ class ResearchStore:
         return self.s.scalar(
             select(ResearchNote).where(ResearchNote.code == code)
             .order_by(ResearchNote.as_of.desc()).limit(1))
-
-    def latest_map(self, codes: list[str]) -> dict[str, ResearchNote]:
-        out: dict[str, ResearchNote] = {}
-        for c in codes:
-            note = self.latest(c)
-            if note is not None:
-                out[c] = note
-        return out
