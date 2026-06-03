@@ -219,6 +219,28 @@ Pipeline:
 Smoke-verified on 30 stocks + 沪深300 (2026-06-03): dump/init OK, factor IC ~0.07
 with monotonic layered returns, strategy metrics vs 沪深300 produced.
 
+## 跟踪表 + 每日定时更新
+
+- 前端「跟踪」页:粘贴同花顺自选页文本即可加入跟踪,系统自动识别 6 位代码与名称,
+  展示 T+1/3/5/10、至今涨跌、最大涨幅、最大回撤。
+- 接口:`POST /api/track`(body `{text}`)、`GET /api/track`、
+  `DELETE /api/track/{code}/{added_on}`。
+- 手动跑全套更新(依次:全市场行情入库 → qlib 重建 → 跟踪表指标刷新):
+
+  ```bash
+  .venv/bin/python scripts/daily_full.py
+  ```
+
+- 自动调度:后端进程内置 APScheduler,每天 16:00(北京时间 / Asia/Shanghai)触发
+  `daily_full`。默认关闭,需在 `.env` 中开启(需后端进程常驻):
+
+  ```
+  ENABLE_SCHEDULER=true
+  # 可选,覆盖默认触发时间
+  DAILY_UPDATE_HOUR=16
+  DAILY_UPDATE_MINUTE=0
+  ```
+
 ## Running tests
 
 ```bash
