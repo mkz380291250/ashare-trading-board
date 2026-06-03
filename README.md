@@ -121,11 +121,30 @@ Surfaced at `GET /api/discovery` (latest, or `?date=YYYY-MM-DD`) and the dashboa
 机会榜 panel. Pluggable `SignalProvider` — slice-4 qualitative / money-flow signals
 slot in as more providers without rework.
 
+## Decision engine (multi-agent, slice 3)
+
+Weekly multi-agent debate (量价/基本面 analysts → 多空 researchers → trader →
+risk committee) over holdings ∪ discovery Top-8, producing BUY/SELL/HOLD with full
+reasoning. The LLM is pluggable — default **local Claude** (headless `claude -p`),
+or DeepSeek (`DECISION_LLM=deepseek`). Each agent ends with a JSON verdict that the
+orchestrator parses; decisions are **PENDING** until approved in the UI, which
+executes the PaperBroker.
+
+```bash
+cd backend
+.venv/bin/python scripts/run_decisions.py     # default local Claude (slow, nested)
+DECISION_LLM=deepseek .venv/bin/python scripts/run_decisions.py
+```
+
+Surfaced at `GET /api/decisions`, `POST /api/decisions/{id}/approve|reject`, and the
+dashboard 决策 panel. The 研报/新闻 analyst is a stub fed empty until slice 4 wires
+scraped research reports.
+
 ## Running tests
 
 ```bash
 cd backend
-.venv/bin/python -m pytest -q     # 43 tests
+.venv/bin/python -m pytest -q     # 62 tests
 ```
 
 ## Key design constraints
