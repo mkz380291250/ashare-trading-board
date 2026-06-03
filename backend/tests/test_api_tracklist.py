@@ -19,7 +19,7 @@ def client():
     Base.metadata.create_all(engine)
     factory = sessionmaker(bind=engine, expire_on_commit=False, future=True)
     s = factory()
-    s.add(DailyQuote(code="300975", trade_date=date(2026, 6, 3),
+    s.add(DailyQuote(code="300975.SZ", trade_date=date(2026, 6, 3),
                      open=43.0, high=44.0, low=42.5, close=43.41, vol=1000.0))
     s.commit(); s.close()
 
@@ -38,17 +38,18 @@ def test_post_parses_and_adds(client):
     r = client.post("/api/track", json={"text": "商络电子 43.41\n融 300975"})
     assert r.status_code == 200
     body = r.json()
-    assert body["added"][0]["code"] == "300975"
+    # 路由把裸码 300975 归一化为带后缀的 ts_code,与 DailyQuote 一致
+    assert body["added"][0]["code"] == "300975.SZ"
     assert body["added"][0]["entry_close"] == 43.41
 
 
 def test_get_lists(client):
     client.post("/api/track", json={"text": "商络电子\n300975"})
     rows = client.get("/api/track").json()
-    assert any(x["code"] == "300975" for x in rows)
+    assert any(x["code"] == "300975.SZ" for x in rows)
 
 
 def test_delete(client):
     client.post("/api/track", json={"text": "商络电子\n300975"})
-    assert client.delete("/api/track/300975/2026-06-03").status_code == 200
+    assert client.delete("/api/track/300975.SZ/2026-06-03").status_code == 200
     assert client.get("/api/track").json() == []

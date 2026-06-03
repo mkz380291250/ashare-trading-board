@@ -1,4 +1,15 @@
-from app.screener.tracklist_parser import parse_tracklist
+from app.screener.tracklist_parser import parse_tracklist, normalize_code
+
+
+def test_normalize_code_exchange_suffix():
+    assert normalize_code("300975") == "300975.SZ"   # 创业板
+    assert normalize_code("301099") == "301099.SZ"
+    assert normalize_code("603045") == "603045.SH"   # 沪市主板
+    assert normalize_code("601991") == "601991.SH"
+    assert normalize_code("688519") == "688519.SH"   # 科创板
+    assert normalize_code("830799") == "830799.BJ"   # 北交所
+    assert normalize_code("300975.SZ") == "300975.SZ"  # 已带后缀原样返回
+
 
 SAMPLE = """
 19:51    同花顺App

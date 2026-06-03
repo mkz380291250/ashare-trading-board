@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_session
 from app.db.models import DailyQuote
 from app.screener.tracklist import Tracker
-from app.screener.tracklist_parser import parse_tracklist
+from app.screener.tracklist_parser import parse_tracklist, normalize_code
 
 router = APIRouter(prefix="/api/track", tags=["track"])
 
@@ -34,7 +34,8 @@ def add(req: AddReq, s: Session = Depends(get_session)):
     on = _latest_trade_date(s)
     if on is None:
         return {"added": [], "error": "no market data"}
-    pairs = parse_tracklist(req.text)
+    # 归一化为带交易所后缀的 ts_code,与 DailyQuote.code 一致,否则收盘价查不到
+    pairs = [(normalize_code(c), name) for c, name in parse_tracklist(req.text)]
     codes = [c for c, _ in pairs]
     quotes = {q.code: q.close for q in s.scalars(
         select(DailyQuote).where(DailyQuote.code.in_(codes),
