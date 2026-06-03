@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Table, Empty } from "antd";
 import { apiGet } from "../api/client";
 
 type Pick = { as_of: string; code: string; rank: number; score: number;
@@ -9,18 +10,16 @@ export function DiscoveryPanel() {
   useEffect(() => {
     apiGet<Pick[]>("/api/discovery").then(setPicks).catch(() => {});
   }, []);
-  if (!picks.length) return <p>机会榜暂无数据</p>;
-  return (
-    <table>
-      <thead><tr><th>#</th><th>代码</th><th>评分</th><th>因子</th></tr></thead>
-      <tbody>
-        {picks.map((p) => (
-          <tr key={p.code}>
-            <td>{p.rank}</td><td>{p.code}</td><td>{p.score.toFixed(3)}</td>
-            <td>{Object.entries(p.factors).map(([k, v]) => `${k}:${v.toFixed(2)}`).join("  ")}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
+  if (!picks.length) return <Empty description="机会榜暂无数据" />;
+  const columns = [
+    { title: "#", dataIndex: "rank", key: "rank" },
+    { title: "代码", dataIndex: "code", key: "code" },
+    { title: "评分", dataIndex: "score", key: "score",
+      render: (v: number) => v.toFixed(3) },
+    { title: "因子", dataIndex: "factors", key: "factors",
+      render: (f: Record<string, number>) =>
+        Object.entries(f).map(([k, v]) => `${k}:${v.toFixed(2)}`).join("  ") },
+  ];
+  return <Table rowKey="code" size="small" pagination={false}
+                dataSource={picks} columns={columns} />;
 }

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Row, Col, Card, Statistic, Spin } from "antd";
 import { apiGet } from "../api/client";
 import { PositionsTable } from "../components/PositionsTable";
 import { EquityChart } from "../components/EquityChart";
@@ -15,27 +16,26 @@ const ACCOUNT_ID = 1;
 export function Dashboard() {
   const [acc, setAcc] = useState<Account | null>(null);
   const [eq, setEq] = useState<Equity>([]);
-
   const load = useCallback(() => {
     apiGet<Account>(`/api/account/${ACCOUNT_ID}`).then(setAcc).catch(() => {});
     apiGet<Equity>(`/api/equity/${ACCOUNT_ID}`).then(setEq).catch(() => {});
   }, []);
   useEffect(load, [load]);
 
-  if (!acc) return <p>加载中…</p>;
+  if (!acc) return <Spin />;
+  const mv = acc.positions.reduce((s, p) => s + p.shares * p.cost, 0);
   return (
-    <div style={{ padding: 24, display: "grid", gap: 16 }}>
-      <h1>{acc.name} 模拟账户</h1>
-      <p>现金: {acc.cash.toFixed(2)}</p>
-      <TradeForm accountId={ACCOUNT_ID} onDone={load} />
-      <h2>持仓</h2>
-      <PositionsTable positions={acc.positions} />
-      <h2>净值曲线</h2>
-      <EquityChart points={eq} />
-      <h2>机会榜 Top-8</h2>
-      <DiscoveryPanel />
-      <h2>决策(人机协同)</h2>
-      <DecisionsPanel />
+    <div style={{ display: "grid", gap: 16 }}>
+      <Row gutter={16}>
+        <Col span={8}><Card><Statistic title="现金" value={acc.cash} precision={2} /></Card></Col>
+        <Col span={8}><Card><Statistic title="持仓成本市值" value={mv} precision={2} /></Card></Col>
+        <Col span={8}><Card><Statistic title="总(现金+持仓)" value={acc.cash + mv} precision={2} /></Card></Col>
+      </Row>
+      <Card title="下单(人机协同)"><TradeForm accountId={ACCOUNT_ID} onDone={load} /></Card>
+      <Card title="持仓"><PositionsTable positions={acc.positions} /></Card>
+      <Card title="净值曲线"><EquityChart points={eq} /></Card>
+      <Card title="机会榜 Top-8"><DiscoveryPanel /></Card>
+      <Card title="决策(人机协同)"><DecisionsPanel /></Card>
     </div>
   );
 }
