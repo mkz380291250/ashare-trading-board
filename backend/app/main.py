@@ -14,13 +14,15 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     from app.api import (routes_account, routes_trade, routes_market,
-                         routes_discovery, routes_decisions, routes_screener)
+                         routes_discovery, routes_decisions, routes_screener,
+                         routes_research)
     app.include_router(routes_account.router)
     app.include_router(routes_trade.router)
     app.include_router(routes_market.router)
     app.include_router(routes_discovery.router)
     app.include_router(routes_decisions.router)
     app.include_router(routes_screener.router)
+    app.include_router(routes_research.router)
 
     return app
 
