@@ -82,3 +82,19 @@ class DiscoveryPick(Base):
 
 
 Index("ix_discovery_picks_as_of", DiscoveryPick.as_of)
+
+
+class Decision(Base):
+    __tablename__ = "decisions"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    as_of: Mapped[date] = mapped_column(Date)
+    code: Mapped[str] = mapped_column(String(16))
+    action: Mapped[str] = mapped_column(String(8))   # BUY/SELL/HOLD
+    confidence: Mapped[float] = mapped_column(Float, default=0.0)
+    shares: Mapped[int] = mapped_column(Integer, default=0)
+    reasoning: Mapped[str] = mapped_column(String, default="")
+    status: Mapped[str] = mapped_column(String(10), default="PENDING")
+    created_at: Mapped[date] = mapped_column(Date)
+
+
+Index("ix_decisions_as_of", Decision.as_of)
