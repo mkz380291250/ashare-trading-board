@@ -6,7 +6,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from sqlalchemy import distinct, select
 from app.config import get_settings
-from app.db.database import make_engine, make_session_factory
+from app.db.database import make_engine, make_session_factory, Base
+import app.db.models  # noqa: F401  ensure all models registered
 from app.db.models import DailyQuote
 from app.data.quote_store import QuoteStore
 from app.discovery.snapshot import QuoteStoreMarketHistory
@@ -29,7 +30,9 @@ def main():
     p.add_argument("--no-save", action="store_true")
     args = p.parse_args()
 
-    session = make_session_factory(make_engine())()
+    engine = make_engine()
+    Base.metadata.create_all(engine)  # 确保 backtest_runs 等新表存在
+    session = make_session_factory(engine)()
     store = QuoteStore(session)
     hist = QuoteStoreMarketHistory(store)
     prov = MomentumProvider()
