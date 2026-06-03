@@ -21,13 +21,35 @@ def test_scorer_ranks_and_truncates():
     assert picks[0][2] == {"f1": 3.0, "f2": 3.0}   # raw factor values of the winner
 
 
-def test_scorer_requires_full_coverage():
-    factors = {"f1": {"a": 1.0, "b": 2.0}, "f2": {"a": 5.0}}  # b missing f2
+def test_scorer_uses_union_with_neutral_fill():
+    # b 缺 f2 → f2 按中性 0.5 计;a 两因子齐全
+    factors = {"f1": {"a": 1.0, "b": 2.0}, "f2": {"a": 5.0}}
     picks = DiscoveryScorer(top_n=8).score(factors)
-    assert [p[0] for p in picks] == ["a"]  # only a has all factors
+    codes = [p[0] for p in picks]
+    assert set(codes) == {"a", "b"}  # 并集,两只都进
 
 
 def test_scorer_weights():
     factors = {"f1": {"a": 1.0, "b": 2.0}, "f2": {"a": 2.0, "b": 1.0}}
     picks = DiscoveryScorer(top_n=2, weights={"f1": 1.0, "f2": 0.0}).score(factors)
     assert picks[0][0] == "b"  # f1 dominant, b higher on f1
+
+
+def test_scorer_momentum_only_matches_intersection_regression():
+    # 所有因子覆盖全部 code 时,并集==交集,排名与旧行为一致
+    factors = {
+        "f1": {"a": 1.0, "b": 2.0, "c": 3.0},
+        "f2": {"a": 1.0, "b": 2.0, "c": 3.0},
+    }
+    picks = DiscoveryScorer(top_n=3).score(factors)
+    assert [p[0] for p in picks] == ["c", "b", "a"]
+
+
+def test_scorer_sparse_factor_neutral_does_not_penalize():
+    # 稀疏研报因子:只有 c 有正情绪,a/b 缺该因子按 0.5
+    factors = {
+        "mom": {"a": 0.5, "b": 0.5, "c": 0.5},     # 动量持平
+        "research_sent": {"c": 1.0},                # 只有 c 有研报
+    }
+    picks = DiscoveryScorer(top_n=3).score(factors)
+    assert picks[0][0] == "c"  # 有正研报的 c 排第一

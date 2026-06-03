@@ -15,20 +15,21 @@ class DiscoveryScorer:
         self.weights = weights
 
     def score(self, factors: dict[str, dict[str, float]]):
-        """factors: {factor_name: {code: raw}}. Returns sorted list of
-        (code, total_score, {factor: raw}) truncated to top_n."""
+        """factors: {factor_name: {code: raw}}. 并集所有 code;某 code 缺某
+        因子时,该因子百分位按中性 0.5 计入。返回 (code, total, {factor: raw})
+        按总分降序,截断 top_n。raw 只含该 code 实际拥有的因子。"""
         if not factors:
             return []
         names = list(factors.keys())
         weights = self.weights or {n: 1.0 / len(names) for n in names}
         pct = {n: percentile_rank(factors[n]) for n in names}
-        common = set(factors[names[0]])
-        for n in names[1:]:
-            common &= set(factors[n])
+        universe: set[str] = set()
+        for n in names:
+            universe |= set(factors[n])
         scored = []
-        for code in common:
-            total = sum(weights.get(n, 0.0) * pct[n][code] for n in names)
-            raw = {n: factors[n][code] for n in names}
+        for code in universe:
+            total = sum(weights.get(n, 0.0) * pct[n].get(code, 0.5) for n in names)
+            raw = {n: factors[n][code] for n in names if code in factors[n]}
             scored.append((code, total, raw))
         scored.sort(key=lambda x: x[1], reverse=True)
         return scored[: self.top_n]
