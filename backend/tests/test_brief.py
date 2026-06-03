@@ -20,3 +20,17 @@ def test_build_brief_assembles_prompt():
 def test_brief_no_holding():
     brief = build_brief("X", [1.0], {}, {}, holding=None)
     assert "无持仓" in brief.to_prompt()
+
+
+def test_brief_renders_research_section():
+    b = build_brief("X", [10.0, 11.0], {}, {},
+                    holding=None,
+                    research={"sentiment": 0.6, "rating_consensus": "买入",
+                              "summary": "机构看多"})
+    p = b.to_prompt()
+    assert "研报" in p and "机构看多" in p and "0.6" in p
+
+
+def test_brief_research_absent_says_no_data():
+    b = build_brief("X", [10.0], {}, {}, holding=None)
+    assert "无研报数据" in b.to_prompt()
