@@ -4,6 +4,7 @@ import { PositionsTable } from "../components/PositionsTable";
 import { EquityChart } from "../components/EquityChart";
 import { TradeForm } from "../components/TradeForm";
 import { DiscoveryPanel } from "../components/DiscoveryPanel";
+import { DecisionsPanel } from "../components/DecisionsPanel";
 
 type Account = { id: number; name: string; cash: number;
   positions: { code: string; shares: number; cost: number }[] };
@@ -33,6 +34,8 @@ export function Dashboard() {
       <EquityChart points={eq} />
       <h2>机会榜 Top-8</h2>
       <DiscoveryPanel />
+      <h2>决策(人机协同)</h2>
+      <DecisionsPanel />
     </div>
   );
 }
