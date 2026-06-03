@@ -20,3 +20,11 @@ def test_agent_runs_and_parses_verdict():
 def test_roles_catalog_has_expected_members():
     assert {"量价分析师", "基本面分析师", "多头研究员", "空头研究员",
             "交易员", "风控经理"} <= set(ROLES)
+
+
+def test_news_research_role_mentions_research():
+    from app.decision.agents import ROLES
+    role = ROLES["新闻研报分析师"]
+    assert "研报" in role
+    # 不再是"当前无研报数据"的死 stub 措辞
+    assert "当前无研报数据时直接说明" not in role

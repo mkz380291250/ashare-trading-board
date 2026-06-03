@@ -10,6 +10,7 @@ from app.db.database import make_engine, make_session_factory, Base
 import app.db.models  # noqa: F401
 from app.db.models import Position, DiscoveryPick
 from app.data.quote_store import QuoteStore
+from app.research.store import ResearchStore
 from app.decision.llm import LocalClaudeClient, DeepSeekClient
 from app.decision.brief import build_brief
 from app.decision.graph import DecisionGraph
@@ -27,6 +28,7 @@ def main():
     engine = make_engine(); Base.metadata.create_all(engine)
     session = make_session_factory(engine)()
     store = QuoteStore(session)
+    research = ResearchStore(session)
 
     as_of = store.trading_dates(date.today(), 1)[0]
     holds = {p.code: p for p in session.scalars(select(Position)).all()}
@@ -42,7 +44,11 @@ def main():
         closes = [b.close for b in bars][-20:]
         h = holds.get(code)
         holding = {"shares": h.shares, "cost": h.cost} if h else None
-        briefs.append(build_brief(code, closes, {}, {}, holding))
+        rnote = research.latest(code)
+        r = ({"sentiment": rnote.sentiment,
+              "rating_consensus": rnote.rating_consensus,
+              "summary": rnote.summary} if rnote else None)
+        briefs.append(build_brief(code, closes, {}, {}, holding, research=r))
 
     runner = DecisionRunner(session, DecisionGraph(_llm(s), rounds=s.debate_rounds))
     out = runner.run(as_of, briefs)
