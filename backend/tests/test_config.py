@@ -16,3 +16,10 @@ def test_decision_llm_defaults():
     s = Settings()
     assert s.decision_llm == "local"
     assert s.claude_bin.endswith("claude")
+
+
+def test_research_config_defaults():
+    from app.config import Settings
+    s = Settings()
+    assert s.research_llm == "local"
+    assert s.research_max_per_min == 50

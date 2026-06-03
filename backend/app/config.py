@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     decision_llm: str = "local"            # local | deepseek
     claude_bin: str = "/usr/local/bin/claude"
     debate_rounds: int = 2
+    research_llm: str = "local"            # local | deepseek
+    research_max_per_min: int = 50         # tushare 研报接口限流(保守)
 
 
 def get_settings() -> Settings:
