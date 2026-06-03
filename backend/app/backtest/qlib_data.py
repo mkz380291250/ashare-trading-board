@@ -52,7 +52,7 @@ def build_bin(csv_dir: str, qlib_dir: str) -> None:
     import sys
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
     from vendor.dump_bin import DumpDataAll
-    DumpDataAll(csv_path=csv_dir, qlib_dir=qlib_dir, freq="day",
+    DumpDataAll(data_path=csv_dir, qlib_dir=qlib_dir, freq="day",
                 date_field_name="date").dump()
 
 

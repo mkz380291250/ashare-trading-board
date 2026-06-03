@@ -35,7 +35,8 @@ def main():
 
     all_dates = sorted(session.scalars(select(distinct(DailyQuote.trade_date))).all())
     start = date(*map(int, args.start.split("-"))) if args.start else all_dates[args.window]
-    end = date(*map(int, args.end.split("-"))) if args.end else all_dates[-1]
+    # qlib 次日撮合:回测末日须比日历末日早 >=1 个交易日,否则 IndexError
+    end = date(*map(int, args.end.split("-"))) if args.end else all_dates[-2]
     dates = [d for d in all_dates if start <= d <= end]
 
     def factor_fn(d):

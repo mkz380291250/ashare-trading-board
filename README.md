@@ -190,11 +190,40 @@ RESEARCH_MAX_PER_MIN=1 .venv/bin/python scripts/run_research.py   # holdings ∪
 
 Surfaced at `GET /api/research/{code}`.
 
+## Backtest & factor analysis (qlib, slice 5)
+
+Module `app/backtest/`. Validates the live signals with **qlib's native engine**,
+benchmarked against **沪深300**. Reuses `MomentumProvider`/`DiscoveryScorer`
+(via `score_all`, no logic rewrite); signal logic is never duplicated.
+
+Pipeline:
+1. **Build qlib data** (one-time, heavy): QuoteStore → per-instrument CSV → qlib
+   `dump_bin` → `data/qlib_cn`. Codes map to qlib symbols (`600519.SH`↔`SH600519`).
+   沪深300 (`tushare index_daily 000300.SH`) is dumped as instrument `SH000300`.
+   `dump_bin.py` is vendored from qlib v0.9.7 under `scripts/vendor/` (not in pip).
+   ```bash
+   cd backend
+   .venv/bin/python scripts/build_qlib_data.py            # whole market (setsid; slow)
+   .venv/bin/python scripts/build_qlib_data.py --limit 30 # smoke subset
+   ```
+2. **Backtest**: `build_score_frame` runs the scorer per day → score frame; fed to
+   qlib `TopkDropoutStrategy` + backtest (`benchmark="SH000300"`, A-share costs) →
+   annualized return / information ratio / max drawdown. Plus `factor_report`:
+   per-day IC / RankIC (+IR) and N-layer forward returns (self-computed, qlib-free).
+   ```bash
+   .venv/bin/python scripts/run_backtest.py --qlib-dir ./data/qlib_cn
+   ```
+   ⚠️ qlib settles next-day, so the backtest end date must be **≥1 trading day
+   before** the qlib calendar's last day (default `end` already leaves the buffer).
+
+Smoke-verified on 30 stocks + 沪深300 (2026-06-03): dump/init OK, factor IC ~0.07
+with monotonic layered returns, strategy metrics vs 沪深300 produced.
+
 ## Running tests
 
 ```bash
 cd backend
-.venv/bin/python -m pytest -q     # 110 tests (board + screener + research)
+.venv/bin/python -m pytest -q     # 124 tests (board + screener + research + backtest)
 ```
 
 ## Key design constraints
