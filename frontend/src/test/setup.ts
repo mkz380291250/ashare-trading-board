@@ -15,6 +15,14 @@ Object.defineProperty(window, 'matchMedia', {
   }),
 })
 
+// antd Input.TextArea (and other resize-aware components) use ResizeObserver — jsdom lacks it
+class ResizeObserverStub {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+globalThis.ResizeObserver = globalThis.ResizeObserver ?? (ResizeObserverStub as any)
+
 // ECharts uses canvas.getContext('2d') — provide a minimal stub so it doesn't crash jsdom
 // measureText must return { width } so zrender text-measurement doesn't throw
 HTMLCanvasElement.prototype.getContext = (() => {

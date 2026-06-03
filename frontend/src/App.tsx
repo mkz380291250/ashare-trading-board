@@ -2,12 +2,14 @@ import { Layout, Menu } from "antd";
 import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { Dashboard } from "./pages/Dashboard";
 import { ScreenerPool } from "./pages/ScreenerPool";
+import { TrackPage } from "./pages/TrackPage";
 import { ResearchPage } from "./pages/ResearchPage";
 import { BacktestPage } from "./pages/BacktestPage";
 
 const ITEMS = [
   { key: "/", label: "交易看板" },
   { key: "/screener", label: "选股池" },
+  { key: "/track", label: "跟踪" },
   { key: "/research", label: "研报" },
   { key: "/backtest", label: "回测" },
 ];
@@ -29,6 +31,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/screener" element={<ScreenerPool />} />
+            <Route path="/track" element={<TrackPage />} />
             <Route path="/research" element={<ResearchPage />} />
             <Route path="/backtest" element={<BacktestPage />} />
           </Routes>
