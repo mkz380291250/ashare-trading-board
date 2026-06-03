@@ -17,17 +17,27 @@ class FakePro:
         return pd.DataFrame(self._news)
 
 
-def test_tushare_source_merges_reports_and_news():
+def test_tushare_source_returns_recent_reports():
     pro = FakePro(
         report_rows=[{"ts_code": "600519.SH", "report_title": "强烈推荐",
                       "rating": "买入", "tp_eps": None, "report_date": "20260601"}],
-        news_rows=[{"datetime": "2026-06-01 09:00", "content": "公司新闻正文"}],
+        news_rows=[],
     )
     src = TushareResearchSource(pro, limiter=None)
     items = src.fetch("600519.SH", date(2026, 6, 2))
     assert any(i.rating == "买入" for i in items)
-    assert any("公司新闻" in (i.text or "") for i in items)
+    # tushare 只出 report_rc(全市场 news 是噪声,不用);个股新闻走 eastmoney
+    assert all(i.source == "tushare:report_rc" for i in items)
     assert all(isinstance(i, ResearchItem) for i in items)
+
+
+def test_tushare_source_caps_and_sorts_recent():
+    rows = [{"report_title": f"r{i}", "rating": "买入", "tp_eps": None,
+             "report_date": f"2026060{i}"} for i in range(1, 6)]
+    src = TushareResearchSource(FakePro(rows, []), limiter=None, max_items=2)
+    items = src.fetch("X", date(2026, 6, 10))
+    assert len(items) == 2                 # 截断到 max_items
+    assert items[0].date == "20260605"     # 按 report_date 倒序,最近在前
 
 
 def test_tushare_source_empty_on_no_data():

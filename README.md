@@ -158,11 +158,43 @@ Themes resolve from tushare concept indices (`ths_index`/`ths_member`) by keywor
 Bars come from the shared historical quote DB via `QuoteStore`. Results surface at
 `GET /api/screener/picks` and the frontend **选股池** tab.
 
+## Research analysis (研报情绪信号, slice 4)
+
+Module `app/research/`. Digests broker research and per-stock news into a
+structured **research note** (`sentiment` -1..1, `rating_consensus`, `summary`)
+cached in `research_notes`, feeding two consumers:
+
+1. **Discovery** — `ResearchSignalProvider` exposes `research_sent` as a pluggable
+   qualitative factor. The scorer fills missing factors with a neutral 0.5, so a
+   sparse signal (only the candidate universe is analyzed) boosts covered stocks
+   without penalizing the rest. Enable with `run_discovery.py --with-research`.
+2. **Decision** — the brief gains a 研报观点 section that the 新闻研报分析师 reads.
+
+Sources (`CompositeSource`, fault-isolated, dedup by title+text):
+- **tushare `report_rc`** — broker ratings/target prices, per-stock & structured.
+  Capped to the most recent `max_items` within `recent_days`. ⚠️ `report_rc` is
+  rate-limited to **1 call/min** on standard tiers — set `RESEARCH_MAX_PER_MIN=1`
+  (or your tier's limit) so a universe of N stocks paces correctly. tushare's
+  `news` feed is market-wide (not per-stock) and is intentionally **not** used.
+- **EastMoney** `search-api-web` JSONP — per-stock news (title/content/date).
+  Container egress verified reachable 2026-06-03. On block it degrades to `[]`.
+
+LLM is configurable via `RESEARCH_LLM` (`local` | `deepseek`), **default local
+Claude** (`claude -p`, same as the decision engine). Note: the DeepSeek key must
+be a real key — the committed `.env` placeholder returns 401.
+
+```bash
+cd backend
+RESEARCH_MAX_PER_MIN=1 .venv/bin/python scripts/run_research.py   # holdings ∪ discovery Top8 ∪ watch pool
+```
+
+Surfaced at `GET /api/research/{code}`.
+
 ## Running tests
 
 ```bash
 cd backend
-.venv/bin/python -m pytest -q     # 108 tests (62 board + 46 screener)
+.venv/bin/python -m pytest -q     # 111 tests (board + screener + research)
 ```
 
 ## Key design constraints
