@@ -125,3 +125,30 @@ class ResearchNote(Base):
 
 
 Index("ix_research_notes_as_of", ResearchNote.as_of)
+
+
+class BacktestRun(Base):
+    __tablename__ = "backtest_runs"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    created_at: Mapped[date] = mapped_column(Date)
+    signal: Mapped[str] = mapped_column(String(32))
+    start: Mapped[date] = mapped_column(Date)
+    end: Mapped[date] = mapped_column(Date)
+    params: Mapped[str] = mapped_column(String, default="{}")            # JSON text
+    strategy_metrics: Mapped[str] = mapped_column(String, default="{}")  # JSON text
+    factor_report: Mapped[str] = mapped_column(String, default="{}")     # JSON text
+
+    def params_dict(self) -> dict:
+        import json
+        return json.loads(self.params or "{}")
+
+    def strategy_metrics_dict(self) -> dict:
+        import json
+        return json.loads(self.strategy_metrics or "{}")
+
+    def factor_report_dict(self) -> dict:
+        import json
+        return json.loads(self.factor_report or "{}")
+
+
+Index("ix_backtest_runs_created_at", BacktestRun.created_at)
