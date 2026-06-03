@@ -167,3 +167,4 @@ class TrackEntry(Base):
     max_gain: Mapped[float | None] = mapped_column(Float, nullable=True)
     max_drawdown: Mapped[float | None] = mapped_column(Float, nullable=True)
     last_updated: Mapped[date | None] = mapped_column(Date, nullable=True)
+    signal: Mapped[str] = mapped_column(String(8), default="")  # "" | "buy" 等手动/规则标记

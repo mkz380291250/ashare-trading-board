@@ -1,4 +1,4 @@
-import { Table, Empty, Button } from "antd";
+import { Table, Empty, Button, Tag } from "antd";
 
 export type Track = {
   code: string; name: string; added_on: string; entry_close: number;
@@ -6,7 +6,7 @@ export type Track = {
   ret_t5: number | null; ret_t10: number | null;
   last_close: number | null; ret_since: number | null;
   max_gain: number | null; max_drawdown: number | null;
-  last_updated: string | null;
+  signal: string; last_updated: string | null;
 };
 
 const pct = (v: number | null) => (v == null ? "-" : `${(v * 100).toFixed(1)}%`);
@@ -17,6 +17,8 @@ export function TrackTable(
 ) {
   if (!rows.length) return <Empty description="暂无跟踪标的" />;
   const columns = [
+    { title: "信号", dataIndex: "signal", key: "sig",
+      render: (v: string) => (v === "buy" ? <Tag color="red">买入</Tag> : "-") },
     { title: "代码", dataIndex: "code", key: "code" },
     { title: "名称", dataIndex: "name", key: "name" },
     { title: "入选日", dataIndex: "added_on", key: "d" },

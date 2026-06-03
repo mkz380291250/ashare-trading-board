@@ -25,7 +25,7 @@ def _row(e):
             "entry_close": e.entry_close, "ret_t1": e.ret_t1, "ret_t3": e.ret_t3,
             "ret_t5": e.ret_t5, "ret_t10": e.ret_t10, "last_close": e.last_close,
             "ret_since": e.ret_since, "max_gain": e.max_gain,
-            "max_drawdown": e.max_drawdown,
+            "max_drawdown": e.max_drawdown, "signal": e.signal,
             "last_updated": e.last_updated.isoformat() if e.last_updated else None}
 
 
