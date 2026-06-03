@@ -150,3 +150,20 @@ class BacktestRun(Base):
 
 
 Index("ix_backtest_runs_created_at", BacktestRun.created_at)
+
+
+class TrackEntry(Base):
+    __tablename__ = "tracklist"
+    code: Mapped[str] = mapped_column(String(16), primary_key=True)
+    added_on: Mapped[date] = mapped_column(Date, primary_key=True)
+    name: Mapped[str] = mapped_column(String(32), default="")
+    entry_close: Mapped[float] = mapped_column(Float)
+    ret_t1: Mapped[float | None] = mapped_column(Float, nullable=True)
+    ret_t3: Mapped[float | None] = mapped_column(Float, nullable=True)
+    ret_t5: Mapped[float | None] = mapped_column(Float, nullable=True)
+    ret_t10: Mapped[float | None] = mapped_column(Float, nullable=True)
+    last_close: Mapped[float | None] = mapped_column(Float, nullable=True)
+    ret_since: Mapped[float | None] = mapped_column(Float, nullable=True)
+    max_gain: Mapped[float | None] = mapped_column(Float, nullable=True)
+    max_drawdown: Mapped[float | None] = mapped_column(Float, nullable=True)
+    last_updated: Mapped[date | None] = mapped_column(Date, nullable=True)
