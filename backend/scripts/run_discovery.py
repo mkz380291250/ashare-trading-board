@@ -12,12 +12,16 @@ from app.discovery.snapshot import QuoteStoreMarketHistory
 from app.discovery.providers import MomentumProvider
 from app.discovery.scorer import DiscoveryScorer
 from app.discovery.runner import DiscoveryRunner
+from app.research.store import ResearchStore
+from app.research.signal import ResearchSignalProvider
 
 
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--date", default=None, help="YYYY-MM-DD; default = latest in DB")
     p.add_argument("--window", type=int, default=20)
+    p.add_argument("--with-research", action="store_true",
+                   help="挂入研报质化信号(读 research_notes)")
     args = p.parse_args()
 
     engine = make_engine(); Base.metadata.create_all(engine)
@@ -26,8 +30,11 @@ def main():
 
     as_of = (date(*map(int, args.date.split("-"))) if args.date
              else store.trading_dates(date.today(), 1)[0])
+    providers = [MomentumProvider()]
+    if args.with_research:
+        providers.append(ResearchSignalProvider(ResearchStore(session)))
     runner = DiscoveryRunner(session, QuoteStoreMarketHistory(store),
-                             [MomentumProvider()], DiscoveryScorer(top_n=8),
+                             providers, DiscoveryScorer(top_n=8),
                              window=args.window)
     picks = runner.run(as_of)
     for code, score, raw in picks:
