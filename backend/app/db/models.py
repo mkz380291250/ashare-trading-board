@@ -112,3 +112,16 @@ class WatchPoolEntry(Base):
     ret_t5: Mapped[float | None] = mapped_column(Float, nullable=True)
     ret_t10: Mapped[float | None] = mapped_column(Float, nullable=True)
     last_updated: Mapped[date | None] = mapped_column(Date, nullable=True)
+
+
+class ResearchNote(Base):
+    __tablename__ = "research_notes"
+    code: Mapped[str] = mapped_column(String(16), primary_key=True)
+    as_of: Mapped[date] = mapped_column(Date, primary_key=True)
+    sentiment: Mapped[float] = mapped_column(Float, default=0.0)  # -1..1
+    rating_consensus: Mapped[str] = mapped_column(String, default="")
+    summary: Mapped[str] = mapped_column(String, default="")
+    source: Mapped[str] = mapped_column(String(32), default="")
+
+
+Index("ix_research_notes_as_of", ResearchNote.as_of)
