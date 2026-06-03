@@ -1,7 +1,10 @@
-// Default to the backend on :8000 of whatever host served the page, so external
-// access works (browser reaches <host>:8000). Override with VITE_API_BASE if needed.
+// API base resolution, in priority order:
+// 1. VITE_API_BASE if explicitly set (incl. "" for same-origin).
+// 2. Dev (vite): "" → same-origin relative paths, forwarded by vite's /api proxy
+//    (works when the page is reached through a tunnel/proxy that can't see :8000).
+// 3. Prod: backend on :8000 of whatever host served the page.
 const BASE = import.meta.env.VITE_API_BASE ??
-  `${window.location.protocol}//${window.location.hostname}:8000`;
+  (import.meta.env.DEV ? "" : `${window.location.protocol}//${window.location.hostname}:8000`);
 
 export async function apiGet<T>(path: string): Promise<T> {
   const r = await fetch(`${BASE}${path}`);
