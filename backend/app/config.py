@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     deepseek_model: str = "deepseek-v4-pro"
     qlib_data_dir: str = "./data/qlib_cn"
     initial_cash: int = 1_000_000
+    decision_llm: str = "local"            # local | deepseek
+    claude_bin: str = "/usr/local/bin/claude"
+    debate_rounds: int = 2
 
 
 def get_settings() -> Settings:

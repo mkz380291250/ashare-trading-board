@@ -10,3 +10,9 @@ def test_settings_reads_env(monkeypatch):
     assert s.tushare_token == "tok"
     assert s.initial_cash == 500000
     assert s.deepseek_model == "deepseek-v4-pro"  # default
+
+
+def test_decision_llm_defaults():
+    s = Settings()
+    assert s.decision_llm == "local"
+    assert s.claude_bin.endswith("claude")
