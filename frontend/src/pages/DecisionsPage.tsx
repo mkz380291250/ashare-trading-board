@@ -3,6 +3,7 @@ import { Row, Col, Card, Tag, Empty, Space, Input, Button } from "antd";
 import { apiGet, apiPost } from "../api/client";
 import { ConclusionCard, type Conclusion } from "../components/ConclusionCard";
 import { RoleStages } from "../components/RoleStages";
+import { ManualTrade } from "../components/ManualTrade";
 import type { Role } from "../components/RoleCard";
 import { ResponsiveList } from "../components/ResponsiveList";
 
@@ -104,6 +105,7 @@ export function DecisionsPage() {
               <ConclusionCard c={detail}
                 onApprove={(p) => act("approve", p)} onReject={() => act("reject")} />
               <RoleStages roles={detail.roles} />
+              <ManualTrade code={detail.code} onDone={() => loadDetail(detail.id)} />
             </>
           ) : <Empty description="选择左侧决策查看辩论" />}
         </Col>
