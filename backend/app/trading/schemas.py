@@ -13,8 +13,14 @@ class TradeRequest(BaseModel):
 
 class PositionOut(BaseModel):
     code: str
+    name: str = ""
     shares: int
     cost: float
+    buy_date: date | None = None
+    last_close: float | None = None
+    market_value: float | None = None
+    pnl: float | None = None
+    pnl_pct: float | None = None
 
 
 class AccountOut(BaseModel):
