@@ -48,3 +48,30 @@ def test_reject_no_trade():
     assert r.status_code == 200
     assert s.get(Decision, did).status == "REJECTED"
     assert client.get("/api/account/1").json()["cash"] == 1000000.0
+
+
+_REASON = (
+    "### 量价分析师\n放量突破。\n```json {\"stance\":\"bull\",\"confidence\":0.7} ```\n\n"
+    "### 风控经理\n空仓观望,不接刀。\n```json {\"action\":\"HOLD\",\"confidence\":0.6,\"shares\":0} ```"
+)
+
+
+def test_get_decision_detail_returns_structured_roles():
+    client, s = _client()
+    d = Decision(as_of=date(2026, 6, 4), code="600519.SH", action="HOLD",
+                 confidence=0.6, shares=0, reasoning=_REASON,
+                 status="PENDING", created_at=date(2026, 6, 4))
+    s.add(d); s.commit()
+    body = client.get(f"/api/decisions/{d.id}").json()
+    assert body["action"] == "HOLD"
+    assert body["status"] == "PENDING"
+    assert body["summary"].startswith("空仓观望")
+    roles = body["roles"]
+    assert [x["role"] for x in roles] == ["量价分析师", "风控经理"]
+    assert roles[0]["stance"] == "bull" and roles[0]["stage"] == "analyst"
+    assert roles[1]["stage"] == "verdict"
+
+
+def test_get_decision_404():
+    client, _ = _client()
+    assert client.get("/api/decisions/99999").status_code == 404

@@ -1,3 +1,4 @@
+import re
 from datetime import date as date_t
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -5,6 +6,7 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 from app.api.deps import get_session
 from app.db.models import Decision
+from app.decision.reasoning_parse import parse_reasoning
 from app.trading.broker import PaperBroker, InsufficientFunds, InsufficientShares
 
 router = APIRouter(prefix="/api", tags=["decisions"])
@@ -25,6 +27,24 @@ def list_decisions(date: date_t | None = None, s: Session = Depends(get_session)
     return [{"id": r.id, "as_of": r.as_of.isoformat(), "code": r.code,
              "action": r.action, "confidence": r.confidence, "shares": r.shares,
              "status": r.status, "reasoning": r.reasoning} for r in rows]
+
+
+@router.get("/decisions/{decision_id}")
+def get_decision(decision_id: int, s: Session = Depends(get_session)):
+    d = s.get(Decision, decision_id)
+    if d is None:
+        raise HTTPException(404, "decision not found")
+    roles = parse_reasoning(d.reasoning)
+    verdict_text = next((r.text for r in roles if r.stage == "verdict"), "")
+    summary = re.split(r"[。\n]", verdict_text.strip(), maxsplit=1)[0] if verdict_text else ""
+    return {
+        "id": d.id, "code": d.code, "name": None,
+        "action": d.action, "confidence": d.confidence, "shares": d.shares,
+        "status": d.status, "summary": summary,
+        "roles": [{"role": r.role, "stage": r.stage, "stance": r.stance,
+                   "action": r.action, "confidence": r.confidence, "text": r.text}
+                  for r in roles],
+    }
 
 
 @router.post("/decisions/{decision_id}/approve")
