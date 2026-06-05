@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { MemoryRouter } from 'react-router-dom'
 import { StockChartProvider } from './StockChartProvider'
 import { StockLink } from './StockLink'
 
@@ -15,9 +16,9 @@ beforeEach(() => {
 describe('StockLink', () => {
   it('renders 名称(代码) and opens chart modal on click', async () => {
     render(
-      <StockChartProvider>
+      <MemoryRouter><StockChartProvider>
         <StockLink code="600519.SH" name="贵州茅台" />
-      </StockChartProvider>,
+      </StockChartProvider></MemoryRouter>,
     )
     const link = screen.getByText('贵州茅台(600519.SH)')
     expect(link).toBeInTheDocument()
@@ -27,9 +28,9 @@ describe('StockLink', () => {
 
   it('falls back to code when no name', () => {
     render(
-      <StockChartProvider>
+      <MemoryRouter><StockChartProvider>
         <StockLink code="600519.SH" />
-      </StockChartProvider>,
+      </StockChartProvider></MemoryRouter>,
     )
     expect(screen.getByText('600519.SH')).toBeInTheDocument()
   })

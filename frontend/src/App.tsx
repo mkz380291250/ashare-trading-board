@@ -7,6 +7,7 @@ import { TrackPage } from "./pages/TrackPage";
 import { ResearchPage } from "./pages/ResearchPage";
 import { BacktestPage } from "./pages/BacktestPage";
 import { DecisionsPage } from "./pages/DecisionsPage";
+import { ChartPage } from "./pages/ChartPage";
 import { SideNav } from "./components/SideNav";
 import { BottomTabBar } from "./components/BottomTabBar";
 import { MoreDrawer } from "./components/MoreDrawer";
@@ -21,6 +22,7 @@ function AppRoutes() {
       <Route path="/decisions" element={<DecisionsPage />} />
       <Route path="/research" element={<ResearchPage />} />
       <Route path="/backtest" element={<BacktestPage />} />
+      <Route path="/chart/:code" element={<ChartPage />} />
     </Routes>
   );
 }

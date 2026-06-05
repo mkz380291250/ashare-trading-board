@@ -1,6 +1,11 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { MemoryRouter } from 'react-router-dom'
+import { type ReactElement } from 'react'
 import { StockChartModal } from './StockChartModal'
+
+// useNavigate 需要 Router 上下文
+const renderM = (ui: ReactElement) => render(<MemoryRouter>{ui}</MemoryRouter>)
 
 const sampleBars = [
   { t: '2026-06-04T09:31:00', o: 10, h: 11, l: 9, c: 10.5, v: 100 },
@@ -23,7 +28,7 @@ describe('StockChartModal', () => {
   beforeEach(() => stubFetch(sampleBars))
 
   it('fetches and renders period buttons when open', async () => {
-    render(<StockChartModal code="600519.SH" name="贵州茅台" open onClose={() => {}} />)
+    renderM(<StockChartModal code="600519.SH" name="贵州茅台" open onClose={() => {}} />)
     await waitFor(() =>
       expect((globalThis.fetch as any)).toHaveBeenCalledWith(
         expect.stringContaining('/api/kline/600519.SH?freq=day')))  // 默认日线
@@ -33,7 +38,7 @@ describe('StockChartModal', () => {
   })
 
   it('switching period refetches with new freq', async () => {
-    render(<StockChartModal code="600519.SH" name="贵州茅台" open onClose={() => {}} />)
+    renderM(<StockChartModal code="600519.SH" name="贵州茅台" open onClose={() => {}} />)
     await waitFor(() => expect(globalThis.fetch as any).toHaveBeenCalled())
     fireEvent.click(screen.getByText('15分'))
     await waitFor(() =>
@@ -43,13 +48,13 @@ describe('StockChartModal', () => {
 
   it('shows 采集中 when no bars', async () => {
     stubFetch([])
-    render(<StockChartModal code="000001.SZ" name="平安" open onClose={() => {}} />)
+    renderM(<StockChartModal code="000001.SZ" name="平安" open onClose={() => {}} />)
     await waitFor(() => expect(screen.getByText(/采集中/)).toBeInTheDocument())
   })
 
   it('does not fetch when closed', () => {
     const fn = stubFetch(sampleBars)
-    render(<StockChartModal code="600519.SH" open={false} onClose={() => {}} />)
+    renderM(<StockChartModal code="600519.SH" open={false} onClose={() => {}} />)
     expect(fn).not.toHaveBeenCalled()
   })
 })

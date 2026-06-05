@@ -33,7 +33,7 @@ const MA = [
 
 // TradingView Lightweight Charts(v5):蜡烛 + 成交量 + 均线 MA5/10/20。
 // A股红涨绿跌,暗色主题,十字光标。props 不变(bars: Bar[]),父组件换 bars 即刷新。
-export function KLineChart({ bars }: { bars: Bar[] }) {
+export function KLineChart({ bars, height = 440 }: { bars: Bar[]; height?: number | string }) {
   const ref = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
@@ -91,5 +91,5 @@ export function KLineChart({ bars }: { bars: Bar[] }) {
     chartRef.current?.timeScale().fitContent();
   }, [bars]);
 
-  return <div ref={ref} style={{ width: "100%", height: 440 }} />;
+  return <div ref={ref} style={{ width: "100%", height }} />;
 }
