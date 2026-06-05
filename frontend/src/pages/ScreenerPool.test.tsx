@@ -10,9 +10,9 @@ beforeEach(() => {
 })
 
 describe('ScreenerPool', () => {
-  it('renders a pick row in an antd table', async () => {
+  it('renders a pick (code + theme) responsively', async () => {
     render(<ScreenerPool />)
     await waitFor(() => expect(screen.getByText('600519.SH')).toBeInTheDocument())
-    expect(document.querySelector('.ant-table')).toBeTruthy()
+    expect(screen.getByText('白酒')).toBeInTheDocument()
   })
 })
