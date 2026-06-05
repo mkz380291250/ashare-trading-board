@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 from app.api.deps import get_session
+from app.data.names import NameLookup
 from app.db.models import DiscoveryPick
 
 router = APIRouter(prefix="/api", tags=["discovery"])
@@ -20,5 +21,6 @@ def discovery(date: date_t | None = None, s: Session = Depends(get_session)):
         select(DiscoveryPick).where(DiscoveryPick.as_of == target)
         .order_by(DiscoveryPick.rank)
     ).all()
-    return [{"as_of": r.as_of.isoformat(), "code": r.code, "rank": r.rank,
-             "score": r.score, "factors": json.loads(r.factors or "{}")} for r in rows]
+    names = NameLookup(s).map([r.code for r in rows])
+    return [{"as_of": r.as_of.isoformat(), "code": r.code, "name": names.get(r.code, ""),
+             "rank": r.rank, "score": r.score, "factors": json.loads(r.factors or "{}")} for r in rows]

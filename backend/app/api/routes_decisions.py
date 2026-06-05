@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 from app.api.deps import get_session
+from app.data.names import NameLookup
 from app.db.models import Decision
 from app.decision.reasoning_parse import parse_reasoning
 from app.trading.broker import PaperBroker, InsufficientFunds, InsufficientShares
@@ -24,7 +25,9 @@ def list_decisions(date: date_t | None = None, s: Session = Depends(get_session)
         return []
     rows = s.scalars(select(Decision).where(Decision.as_of == target)
                      .order_by(Decision.code)).all()
+    names = NameLookup(s).map([r.code for r in rows])
     return [{"id": r.id, "as_of": r.as_of.isoformat(), "code": r.code,
+             "name": names.get(r.code, ""),
              "action": r.action, "confidence": r.confidence, "shares": r.shares,
              "status": r.status, "reasoning": r.reasoning} for r in rows]
 
@@ -38,7 +41,7 @@ def get_decision(decision_id: int, s: Session = Depends(get_session)):
     verdict_text = next((r.text for r in roles if r.stage == "verdict"), "")
     summary = re.split(r"[。\n]", verdict_text.strip(), maxsplit=1)[0] if verdict_text else ""
     return {
-        "id": d.id, "code": d.code, "name": None,
+        "id": d.id, "code": d.code, "name": NameLookup(s).get(d.code),
         "action": d.action, "confidence": d.confidence, "shares": d.shares,
         "status": d.status, "summary": summary,
         "roles": [{"role": r.role, "stage": r.stage, "stance": r.stance,
