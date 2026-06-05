@@ -9,6 +9,8 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 from app.api.deps import get_session
 from app.data.names import NameLookup
+from app.data.prices import latest_close
+from app.data.quote_store import QuoteStore
 from app.db.models import Decision, DecisionJob
 from app.decision.reasoning_parse import parse_reasoning
 from app.screener.tracklist_parser import normalize_code
@@ -90,12 +92,18 @@ def approve(decision_id: int, body: ApproveBody, s: Session = Depends(get_sessio
     if d.status != "PENDING":
         return {"status": d.status}
     if d.action in ("BUY", "SELL") and d.shares > 0:
+        # 价格未指定(前端默认传 0)时,按决策当天收盘价成交,避免成本算成 0
+        price = body.price
+        if price <= 0:
+            price = latest_close(QuoteStore(s), d.code, d.as_of)
+            if price is None or price <= 0:
+                raise HTTPException(400, f"no close price for {d.code} on {d.as_of}")
         broker = PaperBroker(s)
         try:
             if d.action == "BUY":
-                broker.buy(body.account_id, d.code, body.price, d.shares, d.as_of)
+                broker.buy(body.account_id, d.code, price, d.shares, d.as_of)
             else:
-                broker.sell(body.account_id, d.code, body.price, d.shares, d.as_of)
+                broker.sell(body.account_id, d.code, price, d.shares, d.as_of)
         except (InsufficientFunds, InsufficientShares) as e:
             raise HTTPException(400, str(e))
     d.status = "APPROVED"

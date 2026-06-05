@@ -41,6 +41,23 @@ def test_approve_executes_trade():
     assert acc["positions"][0]["code"] == "X"
 
 
+def test_approve_without_price_uses_asof_close():
+    # 前端批准时不带价格(或价格0)→ 必须按决策当天收盘价成交,而不是按 0 → 成本 0
+    from app.db.models import DailyQuote
+    client, s = _client()
+    s.add(DailyQuote(code="X", trade_date=date(2026, 5, 29), open=10.0, high=10.0,
+                     low=10.0, close=50.0, vol=1.0))
+    s.commit()
+    did = s.query(Decision).one().id
+    r = client.post(f"/api/decisions/{did}/approve", json={})   # no price
+    assert r.status_code == 200
+    acc = client.get("/api/account/1").json()
+    pos = acc["positions"][0]
+    assert pos["code"] == "X"
+    assert pos["cost"] == 50.0                      # not 0
+    assert acc["cash"] == 1000000.0 - 50.0 * 100    # cash deducted at close
+
+
 def test_reject_no_trade():
     client, s = _client()
     did = s.query(Decision).one().id
