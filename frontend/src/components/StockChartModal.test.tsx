@@ -26,15 +26,16 @@ describe('StockChartModal', () => {
     render(<StockChartModal code="600519.SH" name="贵州茅台" open onClose={() => {}} />)
     await waitFor(() =>
       expect((globalThis.fetch as any)).toHaveBeenCalledWith(
-        expect.stringContaining('/api/kline/600519.SH?freq=1min')))
-    expect(screen.getByText('5min')).toBeInTheDocument()
-    expect(screen.getByText('30min')).toBeInTheDocument()
+        expect.stringContaining('/api/kline/600519.SH?freq=day')))  // 默认日线
+    expect(screen.getByText('日')).toBeInTheDocument()
+    expect(screen.getByText('5分')).toBeInTheDocument()
+    expect(screen.getByText('30分')).toBeInTheDocument()
   })
 
   it('switching period refetches with new freq', async () => {
     render(<StockChartModal code="600519.SH" name="贵州茅台" open onClose={() => {}} />)
     await waitFor(() => expect(globalThis.fetch as any).toHaveBeenCalled())
-    fireEvent.click(screen.getByText('15min'))
+    fireEvent.click(screen.getByText('15分'))
     await waitFor(() =>
       expect((globalThis.fetch as any)).toHaveBeenCalledWith(
         expect.stringContaining('freq=15min')))

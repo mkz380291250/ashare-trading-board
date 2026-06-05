@@ -3,9 +3,13 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.api.deps import get_session
 from app.data.minute_store import MinuteStore
+from app.data.quote_store import QuoteStore
+from app.data.adjust import to_qfq
 from app.data.names import NameLookup
 
 router = APIRouter(prefix="/api/kline", tags=["kline"])
+
+DAY_FREQS = {"day", "1d", "daily"}
 
 
 def get_minute_fetcher():
@@ -14,12 +18,27 @@ def get_minute_fetcher():
     return TencentMinuteFetcher()
 
 
+def _daily(code: str, days: int, s: Session) -> dict:
+    """日线走历史行情库 daily_quotes(全市场已有),前复权后返回。"""
+    now = datetime.now()
+    bars_raw = QuoteStore(s).get_bars(
+        code, (now - timedelta(days=days)).date(), now.date())
+    qfq = to_qfq(bars_raw)
+    bars = [{"t": b.trade_date.isoformat(), "o": round(b.open, 2),
+             "h": round(b.high, 2), "l": round(b.low, 2),
+             "c": round(b.close, 2), "v": b.volume} for b in qfq]
+    return {"code": code, "name": NameLookup(s).get(code), "freq": "day",
+            "bars": bars, "last_time": bars[-1]["t"] if bars else None}
+
+
 @router.get("/{code}")
-def kline(code: str, freq: str = "1min", days: int = 2,
+def kline(code: str, freq: str = "day", days: int = 400,
           s: Session = Depends(get_session),
           fetcher=Depends(get_minute_fetcher)):
-    """读库返回分钟线。库里没有该股该周期数据时,当场抓一次(腾讯)→落库→返回,
-    点开任意股票都能即时出图;后续由采集守护增量更新。"""
+    """日线走 daily_quotes(前复权);分钟线读 minute_quotes,库里没有则当场抓一次
+    (腾讯)→落库→返回,点开任意股票即时出图。"""
+    if freq in DAY_FREQS:
+        return _daily(code, days, s)
     store = MinuteStore(s)
     now = datetime.now()
     start_dt = now - timedelta(days=days)

@@ -3,10 +3,18 @@ import { Modal, Segmented } from "antd";
 import { apiGet } from "../api/client";
 import { KLineChart, type Bar } from "./KLineChart";
 
-const FREQS = ["1min", "5min", "15min", "30min", "60min"];
-// 每个周期取多长的历史窗口(天)。周期越大看得越远(库里约存 320 根/周期)。
+// 周期选项:默认日线(走历史行情库),其余为分钟线。
+const FREQ_OPTIONS = [
+  { label: "日", value: "day" },
+  { label: "1分", value: "1min" },
+  { label: "5分", value: "5min" },
+  { label: "15分", value: "15min" },
+  { label: "30分", value: "30min" },
+  { label: "60分", value: "60min" },
+];
+// 每个周期取多长的历史窗口(天)。
 const DAYS: Record<string, number> = {
-  "1min": 3, "5min": 12, "15min": 30, "30min": 60, "60min": 160,
+  day: 400, "1min": 3, "5min": 12, "15min": 30, "30min": 60, "60min": 160,
 };
 
 type KlineResp = {
@@ -19,7 +27,7 @@ type KlineResp = {
 export function StockChartModal({ code, name, open, onClose }: {
   code: string; name?: string; open: boolean; onClose: () => void;
 }) {
-  const [freq, setFreq] = useState("1min");
+  const [freq, setFreq] = useState("day");
   const [bars, setBars] = useState<Bar[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -56,7 +64,7 @@ export function StockChartModal({ code, name, open, onClose }: {
       title={name ? `${name}(${code})` : code}
     >
       <Segmented
-        options={FREQS}
+        options={FREQ_OPTIONS}
         value={freq}
         onChange={(v) => setFreq(v as string)}
         style={{ marginBottom: 12 }}

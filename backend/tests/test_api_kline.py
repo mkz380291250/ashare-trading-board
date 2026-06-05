@@ -40,6 +40,14 @@ def client():
     s.add(MinuteQuote(code="600519.SH", freq="5min",
                       trade_time=datetime(2026, 6, 4, 9, 35),
                       open=99.0, high=99.0, low=99.0, close=99.0, vol=1.0))
+    # 日线走 daily_quotes
+    from app.db.models import DailyQuote
+    from datetime import timedelta as _td
+    today = date.today()
+    for i, px in enumerate([100.0, 102.0]):
+        s.add(DailyQuote(code="600519.SH", trade_date=today - _td(days=2 - i),
+                         open=px, high=px + 1, low=px - 1, close=px, vol=1000.0,
+                         adj_factor=1.0))
     s.commit(); s.close()
 
     def _override():
@@ -83,6 +91,21 @@ def test_kline_empty_when_no_data(client):
     body = r.json()
     assert body["bars"] == []
     assert body["last_time"] is None
+
+
+def test_kline_daily_reads_daily_quotes(client):
+    body = client.get("/api/kline/600519.SH?freq=day&days=30").json()
+    assert body["freq"] == "day"
+    assert len(body["bars"]) == 2
+    assert body["bars"][-1]["c"] == 102.0          # 前复权(adj_factor=1 即原值)
+    assert body["bars"][0]["t"].count("-") == 2     # 日期 yyyy-mm-dd
+    assert body["last_time"] is not None
+
+
+def test_kline_default_freq_is_day(client):
+    # 不带 freq 参数 → 默认日线
+    body = client.get("/api/kline/600519.SH").json()
+    assert body["freq"] == "day"
 
 
 def test_kline_fetches_on_demand_when_db_empty(client):
