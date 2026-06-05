@@ -5,11 +5,13 @@ import { ScreenerPool } from "./pages/ScreenerPool";
 import { TrackPage } from "./pages/TrackPage";
 import { ResearchPage } from "./pages/ResearchPage";
 import { BacktestPage } from "./pages/BacktestPage";
+import { DecisionsPage } from "./pages/DecisionsPage";
 
 const ITEMS = [
   { key: "/", label: "交易看板" },
   { key: "/screener", label: "选股池" },
   { key: "/track", label: "跟踪" },
+  { key: "/decisions", label: "决策" },
   { key: "/research", label: "研报" },
   { key: "/backtest", label: "回测" },
 ];
@@ -32,6 +34,7 @@ export default function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/screener" element={<ScreenerPool />} />
             <Route path="/track" element={<TrackPage />} />
+            <Route path="/decisions" element={<DecisionsPage />} />
             <Route path="/research" element={<ResearchPage />} />
             <Route path="/backtest" element={<BacktestPage />} />
           </Routes>
