@@ -1,5 +1,21 @@
 import { render } from '@testing-library/react'
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
+
+// mock lightweight-charts:jsdom 无 canvas/ResizeObserver,只验证组件渲染+喂数不崩
+const setData = vi.fn()
+const series = { setData, priceScale: () => ({ applyOptions: vi.fn() }) }
+vi.mock('lightweight-charts', () => ({
+  createChart: () => ({
+    addSeries: () => series,
+    timeScale: () => ({ fitContent: vi.fn() }),
+    remove: vi.fn(),
+  }),
+  CandlestickSeries: 'Candle',
+  HistogramSeries: 'Hist',
+  LineSeries: 'Line',
+  CrosshairMode: { Normal: 0 },
+}))
+
 import { KLineChart, type Bar } from './KLineChart'
 
 const bars: Bar[] = [
@@ -11,6 +27,7 @@ describe('KLineChart', () => {
   it('renders without crashing given bars', () => {
     const { container } = render(<KLineChart bars={bars} />)
     expect(container.querySelector('div')).toBeInTheDocument()
+    expect(setData).toHaveBeenCalled()
   })
 
   it('handles empty bars', () => {
