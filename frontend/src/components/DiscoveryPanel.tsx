@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Empty, Card, Space, Tag } from "antd";
 import { apiGet } from "../api/client";
 import { ResponsiveList } from "./ResponsiveList";
+import { StockLink } from "./StockLink";
 import { semanticColor } from "../theme/tokens";
 
 type Pick = { as_of: string; code: string; name?: string; rank: number; score: number;
@@ -16,7 +17,7 @@ export function DiscoveryPanel() {
   const columns = [
     { title: "#", dataIndex: "rank", key: "rank" },
     { title: "代码", dataIndex: "code", key: "code",
-      render: (_: string, p: Pick) => p.name ? `${p.name}(${p.code})` : p.code },
+      render: (_: string, p: Pick) => <StockLink code={p.code} name={p.name} /> },
     { title: "评分", dataIndex: "score", key: "score",
       render: (v: number) => v.toFixed(3) },
     { title: "因子", dataIndex: "factors", key: "factors",
@@ -31,7 +32,7 @@ export function DiscoveryPanel() {
       renderCard={(p) => (
         <Card size="small">
           <Space split="·">
-            <b>{p.rank}. {p.name ? `${p.name}(${p.code})` : p.code}</b>
+            <b>{p.rank}. <StockLink code={p.code} name={p.name} /></b>
             <Tag color={semanticColor(p.score - 0.5)}>
               评分 {p.score.toFixed(3)}
             </Tag>

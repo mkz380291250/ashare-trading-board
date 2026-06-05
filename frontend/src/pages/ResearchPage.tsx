@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Row, Col, Card, Space, Statistic, Tag, Empty, Typography } from "antd";
 import { apiGet } from "../api/client";
 import { ResponsiveList } from "../components/ResponsiveList";
+import { StockLink } from "../components/StockLink";
 import { semanticColor } from "../theme/tokens";
 
 type Note = { code: string; name?: string; as_of: string; sentiment: number;
@@ -18,7 +19,7 @@ export function ResearchPage() {
 
   const columns = [
     { title: "代码", dataIndex: "code", key: "code",
-      render: (_: string, n: Note) => n.name ? `${n.name}(${n.code})` : n.code },
+      render: (_: string, n: Note) => <StockLink code={n.code} name={n.name} /> },
     { title: "情绪", dataIndex: "sentiment", key: "s",
       render: (v: number) => <Tag color={semanticColor(v)}>{v.toFixed(2)}</Tag> },
     { title: "日期", dataIndex: "as_of", key: "d" },
@@ -36,7 +37,7 @@ export function ResearchPage() {
             renderCard={(n) => (
               <Card size="small">
                 <Space split="·">
-                  <b>{n.name ? `${n.name}(${n.code})` : n.code}</b>
+                  <b><StockLink code={n.code} name={n.name} /></b>
                   <Tag color={semanticColor(n.sentiment)}>{n.sentiment.toFixed(2)}</Tag>
                   <span>{n.as_of}</span>
                 </Space>

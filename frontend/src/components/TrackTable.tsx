@@ -1,6 +1,7 @@
 import { Empty, Button, Tag, Card, Space } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { ResponsiveList } from "./ResponsiveList";
+import { StockLink } from "./StockLink";
 import { semanticColor } from "../theme/tokens";
 
 export type Track = {
@@ -27,7 +28,9 @@ export function TrackTable(
   const columns: ColumnsType<Track> = [
     { title: "信号", dataIndex: "signal", key: "sig", width: 64, fixed: "left",
       render: (v: string) => (v === "buy" ? <Tag color="red">买入</Tag> : "-") },
-    { title: "代码", dataIndex: "code", key: "code", width: 96, fixed: "left" },
+    { title: "代码", dataIndex: "code", key: "code", width: 96, fixed: "left",
+      render: (_: string, r: Track) => (
+        <StockLink code={r.code} name={r.name}>{r.code}</StockLink>) },
     { title: "名称", dataIndex: "name", key: "name", width: 96, fixed: "left",
       onCell: () => ({ style: { whiteSpace: "nowrap" } }) },
     { title: "入选日", dataIndex: "added_on", key: "d", width: 104 },
@@ -61,7 +64,7 @@ export function TrackTable(
       renderCard={(r) => (
         <Card size="small" extra={<a onClick={() => onRemove(r.code, r.added_on)}>移除</a>}>
           <Space split="·">
-            <b>{r.name || r.code}</b><span>{r.code}</span>
+            <b><StockLink code={r.code} name={r.name}>{r.name || r.code}</StockLink></b><span>{r.code}</span>
             {r.signal === "buy" && <Tag color="red">buy@{r.buy_price}</Tag>}
           </Space>
           <div style={{ marginTop: 6 }}>

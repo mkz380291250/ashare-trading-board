@@ -5,12 +5,15 @@ import 'antd/dist/reset.css'
 import './index.css'
 import App from './App.tsx'
 import { ThemeProvider } from './theme/ThemeProvider'
+import { StockChartProvider } from './components/StockChartProvider'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <ThemeProvider>
-        <App />
+        <StockChartProvider>
+          <App />
+        </StockChartProvider>
       </ThemeProvider>
     </BrowserRouter>
   </StrictMode>,

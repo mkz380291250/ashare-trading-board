@@ -1,5 +1,6 @@
 import { Card, Space, Tag } from "antd";
 import { ResponsiveList } from "./ResponsiveList";
+import { StockLink } from "./StockLink";
 import { semanticColor } from "../theme/tokens";
 
 type Position = {
@@ -22,7 +23,9 @@ export function PositionsTable({
   forceMobile?: boolean;
 }) {
   const columns = [
-    { title: "代码", dataIndex: "code", key: "code" },
+    { title: "代码", dataIndex: "code", key: "code",
+      render: (_v: string, p: Position) => (
+        <StockLink code={p.code} name={p.name}>{p.code}</StockLink>) },
     { title: "名称", dataIndex: "name", key: "name",
       render: (v: string | null) => v ?? "—" },
     { title: "股数", dataIndex: "shares", key: "shares" },
@@ -63,7 +66,10 @@ export function PositionsTable({
           : `${p.pnl >= 0 ? "+" : ""}${p.pnl.toFixed(0)} (${((p.pnl_pct ?? 0) * 100).toFixed(1)}%)`;
         return (
           <Card size="small">
-            <Space split="·"><b>{p.name || p.code}</b><span>{p.code}</span></Space>
+            <Space split="·">
+              <b><StockLink code={p.code} name={p.name}>{p.name || p.code}</StockLink></b>
+              <span>{p.code}</span>
+            </Space>
             <div style={{ marginTop: 6 }}>
               <Tag>股数 {p.shares}</Tag><Tag>成本 {p.cost}</Tag>
               {p.buy_date && <Tag>买入 {p.buy_date}</Tag>}

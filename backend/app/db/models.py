@@ -1,6 +1,6 @@
 import json
-from datetime import date
-from sqlalchemy import String, Float, Integer, Date, ForeignKey, Index
+from datetime import date, datetime
+from sqlalchemy import String, Float, Integer, Date, DateTime, ForeignKey, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.database import Base
 
@@ -185,3 +185,20 @@ class DecisionJob(Base):
     decision_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     error: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[date] = mapped_column(Date)
+
+
+class MinuteQuote(Base):
+    __tablename__ = "minute_quotes"
+    code: Mapped[str] = mapped_column(String(16), primary_key=True)
+    freq: Mapped[str] = mapped_column(String(8), primary_key=True)  # 1min/5min/15min/30min/60min
+    trade_time: Mapped[datetime] = mapped_column(DateTime, primary_key=True)
+    open: Mapped[float] = mapped_column(Float)
+    high: Mapped[float] = mapped_column(Float)
+    low: Mapped[float] = mapped_column(Float)
+    close: Mapped[float] = mapped_column(Float)
+    vol: Mapped[float] = mapped_column(Float)
+    amount: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+
+Index("ix_minute_quotes_code_freq_time",
+      MinuteQuote.code, MinuteQuote.freq, MinuteQuote.trade_time)
