@@ -7,8 +7,20 @@ from sqlalchemy.pool import StaticPool
 from app.db.database import Base
 import app.db.models  # noqa: F401
 from app.api import deps
+from app.api import routes_kline
 from app.db.models import MinuteQuote, StockName
 from app.main import create_app
+
+
+class _Fetcher:
+    """测试用假采集器:可预置返回行,默认空(不联网)。"""
+    def __init__(self, rows=None):
+        self.rows = rows or []
+        self.calls = []
+
+    def fetch(self, code, freq, start, end):
+        self.calls.append((code, freq))
+        return [dict(r, code=code, freq=freq) for r in self.rows]
 
 
 @pytest.fixture
@@ -38,7 +50,11 @@ def client():
             s.close()
     app = create_app()
     app.dependency_overrides[deps.get_session] = _override
-    return TestClient(app)
+    # 默认注入空采集器,保证已有测试「只读库、不联网」
+    app.dependency_overrides[routes_kline.get_minute_fetcher] = lambda: _Fetcher()
+    c = TestClient(app)
+    c.app = app
+    return c
 
 
 def test_kline_reads_db_only(client):
@@ -67,3 +83,21 @@ def test_kline_empty_when_no_data(client):
     body = r.json()
     assert body["bars"] == []
     assert body["last_time"] is None
+
+
+def test_kline_fetches_on_demand_when_db_empty(client):
+    # 库里没有 000001.SZ -> 应当场抓取(假采集器返回行)、落库并返回
+    fetched = _Fetcher(rows=[
+        {"trade_time": datetime(2026, 6, 4, 9, 31), "open": 12.0, "high": 12.1,
+         "low": 11.9, "close": 12.05, "vol": 5.0, "amount": 60.0},
+    ])
+    client.app.dependency_overrides[routes_kline.get_minute_fetcher] = lambda: fetched
+    body = client.get("/api/kline/000001.SZ?freq=1min&days=30").json()
+    assert fetched.calls == [("000001.SZ", "1min")]
+    assert len(body["bars"]) == 1
+    assert body["bars"][0]["c"] == 12.05
+    assert body["last_time"] is not None
+    # 第二次:已落库,且即便采集器为空也仍返回(走库)
+    client.app.dependency_overrides[routes_kline.get_minute_fetcher] = lambda: _Fetcher()
+    body2 = client.get("/api/kline/000001.SZ?freq=1min&days=30").json()
+    assert len(body2["bars"]) == 1
