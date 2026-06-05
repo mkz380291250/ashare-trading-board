@@ -11,6 +11,8 @@ import app.db.models  # noqa: F401
 from app.db.models import DecisionJob
 from app.data.quote_store import QuoteStore
 from app.data.prices import latest_close
+from app.data.fundamentals import build_fundamentals
+from app.screener.earnings import TushareEarningsSource
 from app.research.store import ResearchStore
 from app.decision.llm import LocalClaudeClient, DeepSeekClient
 from app.decision.brief import build_brief
@@ -19,7 +21,7 @@ from app.decision.runner import DecisionRunner
 from app.trading.broker import PaperBroker
 
 
-def run_one(session, job_id, code, graph, store, research):
+def run_one(session, job_id, code, graph, store, research, earnings=None):
     job = session.get(DecisionJob, job_id)
     job.status = "RUNNING"; session.commit()
     try:
@@ -29,7 +31,8 @@ def run_one(session, job_id, code, graph, store, research):
         rnote = research.latest(code)
         r = ({"sentiment": rnote.sentiment, "rating_consensus": rnote.rating_consensus,
               "summary": rnote.summary} if rnote else None)
-        brief = build_brief(code, closes, {}, {}, None, research=r)
+        fundamentals = build_fundamentals(session, code, as_of, earnings=earnings)
+        brief = build_brief(code, closes, {}, fundamentals, None, research=r)
         runner = DecisionRunner(session, graph, broker=PaperBroker(session),
                                 account_id=1, price_of=lambda c: latest_close(store, c, as_of))
         out = runner.run(as_of, [brief])
@@ -53,8 +56,13 @@ def main():
     s = get_settings()
     engine = make_engine(); Base.metadata.create_all(engine)
     session = make_session_factory(engine)()
+    try:
+        import tushare as ts
+        earnings = TushareEarningsSource(ts.pro_api(s.tushare_token))
+    except Exception:
+        earnings = None  # 取不到增速也不挡决策
     run_one(session, a.job, a.code, DecisionGraph(_llm(s), rounds=s.debate_rounds),
-            QuoteStore(session), ResearchStore(session))
+            QuoteStore(session), ResearchStore(session), earnings=earnings)
     print(f"JOB_DONE job={a.job}", flush=True)
 
 
