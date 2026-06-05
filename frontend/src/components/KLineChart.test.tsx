@@ -4,9 +4,11 @@ import { describe, it, expect, vi } from 'vitest'
 // mock lightweight-charts:jsdom 无 canvas/ResizeObserver,只验证组件渲染+喂数不崩
 const setData = vi.fn()
 const series = { setData, priceScale: () => ({ applyOptions: vi.fn() }) }
+const pane = { setStretchFactor: vi.fn() }
 vi.mock('lightweight-charts', () => ({
   createChart: () => ({
     addSeries: () => series,
+    panes: () => [pane, pane, pane],
     timeScale: () => ({ fitContent: vi.fn() }),
     remove: vi.fn(),
   }),

@@ -15,10 +15,10 @@ export function ChartPage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 140px)", minHeight: 420 }}>
-      <Space style={{ marginBottom: 12, justifyContent: "space-between", width: "100%" }}>
+      <Space wrap style={{ marginBottom: 12, justifyContent: "space-between", width: "100%" }}>
         <Space>
           <Button onClick={() => nav(-1)}>← 返回</Button>
-          <Typography.Title level={4} style={{ margin: 0 }}>
+          <Typography.Title level={4} style={{ margin: 0, whiteSpace: "nowrap" }}>
             {title} <Typography.Text type="secondary">{code}</Typography.Text>
           </Typography.Title>
         </Space>
