@@ -35,6 +35,11 @@ export function ConclusionCard({ c, onApprove, onReject }: {
             </Space>
           </Col>
         )}
+        {c.status !== "PENDING" && (
+          <Col>
+            <span style={{ color: "#13c281" }}>✅ 已自动执行({c.action})</span>
+          </Col>
+        )}
       </Row>
     </Card>
   );

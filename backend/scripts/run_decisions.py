@@ -15,6 +15,8 @@ from app.decision.llm import LocalClaudeClient, DeepSeekClient
 from app.decision.brief import build_brief
 from app.decision.graph import DecisionGraph
 from app.decision.runner import DecisionRunner
+from app.trading.broker import PaperBroker
+from app.data.prices import latest_close
 
 
 def _llm(s):
@@ -50,7 +52,10 @@ def main():
               "summary": rnote.summary} if rnote else None)
         briefs.append(build_brief(code, closes, {}, {}, holding, research=r))
 
-    runner = DecisionRunner(session, DecisionGraph(_llm(s), rounds=s.debate_rounds))
+    broker = PaperBroker(session)
+    runner = DecisionRunner(session, DecisionGraph(_llm(s), rounds=s.debate_rounds),
+                            broker=broker, account_id=1,
+                            price_of=lambda c: latest_close(store, c, as_of))
     out = runner.run(as_of, briefs)
     for d in out:
         print(f"{d.code}  {d.action}  conf={d.confidence}  shares={d.shares}", flush=True)
