@@ -8,7 +8,7 @@ const PICKS = [{ code: "600519.SH", theme: "白酒", first_selected_on: "2026-06
 describe("PicksTable", () => {
   it("desktop shows table header", () => {
     render(<PicksTable picks={PICKS as any} forceMobile={false} />);
-    expect(screen.getByText("代码")).toBeInTheDocument();
+    expect(screen.getAllByText("代码").length).toBeGreaterThan(0);
   });
   it("mobile shows a card with code + theme", () => {
     render(<PicksTable picks={PICKS as any} forceMobile={true} />);

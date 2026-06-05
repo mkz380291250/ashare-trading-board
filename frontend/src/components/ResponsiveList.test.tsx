@@ -13,7 +13,7 @@ describe("ResponsiveList", () => {
   it("desktop renders a table (column headers visible)", () => {
     render(<ResponsiveList forceMobile={false} dataSource={DATA} columns={columns}
       rowKey="code" renderCard={(r: Row) => <div>card-{r.code}</div>} />);
-    expect(screen.getByText("代码")).toBeInTheDocument();
+    expect(screen.getAllByText("代码").length).toBeGreaterThan(0);   // 表头(含 antd 测量行)
     expect(screen.getByText("贵州茅台")).toBeInTheDocument();
   });
 

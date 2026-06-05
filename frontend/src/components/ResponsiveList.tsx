@@ -34,7 +34,7 @@ export function ResponsiveList<T extends object>(p: Props<T>) {
   }
   return (
     <Table<T> rowKey={p.rowKey} size="small" pagination={false}
-      dataSource={p.dataSource} columns={p.columns}
+      dataSource={p.dataSource} columns={p.columns} scroll={{ x: "max-content" }}
       onRow={(r) => ({ onClick: () => p.onRowClick?.(r),
         style: p.onRowClick ? { cursor: "pointer" } : undefined })} />
   );
