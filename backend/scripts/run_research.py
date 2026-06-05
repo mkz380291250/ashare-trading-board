@@ -38,7 +38,10 @@ def main():
         select(DiscoveryPick).where(DiscoveryPick.as_of == top_date)).all()} \
         if top_date else set()
     watch = {w.code for w in session.scalars(select(WatchPoolEntry)).all()}
-    universe = holds | top | watch
+    # 同步决策口径:跟踪表 + 已辩论决策也要有研报(否则辩论时「新闻研报分析师」无数据)
+    from app.data.minute_universe import minute_universe
+    debated = set(minute_universe(session))
+    universe = {c for c in (holds | top | watch | debated) if c}
 
     import tushare as ts
     pro = ts.pro_api(s.tushare_token)
