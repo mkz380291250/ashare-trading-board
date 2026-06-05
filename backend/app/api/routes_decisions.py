@@ -1,13 +1,17 @@
 import re
+import sys
+import subprocess
 from datetime import date as date_t
+from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 from app.api.deps import get_session
 from app.data.names import NameLookup
-from app.db.models import Decision
+from app.db.models import Decision, DecisionJob
 from app.decision.reasoning_parse import parse_reasoning
+from app.screener.tracklist_parser import normalize_code
 from app.trading.broker import PaperBroker, InsufficientFunds, InsufficientShares
 
 router = APIRouter(prefix="/api", tags=["decisions"])
@@ -16,6 +20,34 @@ router = APIRouter(prefix="/api", tags=["decisions"])
 class ApproveBody(BaseModel):
     price: float = 0.0
     account_id: int = 1
+
+
+class RunBody(BaseModel):
+    code: str
+
+
+def _spawn_decision_worker(job_id: int, code: str) -> None:
+    root = Path(__file__).resolve().parents[2]   # backend/
+    script = root / "scripts" / "run_one_decision.py"
+    subprocess.Popen(["setsid", sys.executable, str(script), "--code", code, "--job", str(job_id)],
+                     cwd=str(root), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                     start_new_session=True)
+
+
+@router.post("/decisions/run")
+def run_decision(body: RunBody, s: Session = Depends(get_session)):
+    code = normalize_code(body.code)
+    job = DecisionJob(code=code, status="PENDING", created_at=date_t.today())
+    s.add(job); s.commit(); s.refresh(job)
+    _spawn_decision_worker(job.id, code)
+    return {"id": job.id, "code": job.code, "status": job.status}
+
+
+@router.get("/decisions/jobs")
+def list_jobs(s: Session = Depends(get_session)):
+    rows = s.scalars(select(DecisionJob).order_by(DecisionJob.id.desc()).limit(20)).all()
+    return [{"id": j.id, "code": j.code, "status": j.status,
+             "decision_id": j.decision_id, "error": j.error} for j in rows]
 
 
 @router.get("/decisions")

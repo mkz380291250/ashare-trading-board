@@ -175,3 +175,13 @@ class StockName(Base):
     __tablename__ = "stock_names"
     code: Mapped[str] = mapped_column(String(16), primary_key=True)
     name: Mapped[str] = mapped_column(String(32), default="")
+
+
+class DecisionJob(Base):
+    __tablename__ = "decision_jobs"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code: Mapped[str] = mapped_column(String(16))
+    status: Mapped[str] = mapped_column(String(10), default="PENDING")
+    decision_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    error: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[date] = mapped_column(Date)
