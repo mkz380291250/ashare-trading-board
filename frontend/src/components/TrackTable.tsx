@@ -1,5 +1,7 @@
-import { Table, Empty, Button, Tag } from "antd";
+import { Empty, Button, Tag, Card, Space } from "antd";
 import type { ColumnsType } from "antd/es/table";
+import { ResponsiveList } from "./ResponsiveList";
+import { semanticColor } from "../theme/tokens";
 
 export type Track = {
   code: string; name: string; added_on: string; entry_close: number;
@@ -15,7 +17,11 @@ const pct = (v: number | null) => (v == null ? "-" : `${(v * 100).toFixed(1)}%`)
 const num = (v: number | null) => (v == null ? "-" : v.toFixed(2));
 
 export function TrackTable(
-  { rows, onRemove }: { rows: Track[]; onRemove: (code: string, on: string) => void },
+  { rows, onRemove, forceMobile }: {
+    rows: Track[];
+    onRemove: (code: string, on: string) => void;
+    forceMobile?: boolean;
+  },
 ) {
   if (!rows.length) return <Empty description="暂无跟踪标的" />;
   const columns: ColumnsType<Track> = [
@@ -45,7 +51,26 @@ export function TrackTable(
         </Button>
       ) },
   ];
-  return <Table rowKey={(r) => `${r.code}-${r.added_on}`} size="small"
-                pagination={false} dataSource={rows} columns={columns}
-                scroll={{ x: "max-content" }} />;
+  return (
+    <ResponsiveList<Track>
+      dataSource={rows}
+      columns={columns}
+      rowKey={(r) => `${r.code}-${r.added_on}`}
+      forceMobile={forceMobile}
+      empty={<Empty description="暂无跟踪标的" />}
+      renderCard={(r) => (
+        <Card size="small" extra={<a onClick={() => onRemove(r.code, r.added_on)}>移除</a>}>
+          <Space split="·">
+            <b>{r.name || r.code}</b><span>{r.code}</span>
+            {r.signal === "buy" && <Tag color="red">buy@{r.buy_price}</Tag>}
+          </Space>
+          <div style={{ marginTop: 6 }}>
+            <Tag color={semanticColor(r.ret_since)}>至今 {((r.ret_since ?? 0) * 100).toFixed(1)}%</Tag>
+            <Tag color={semanticColor(r.max_gain)}>最大涨 {((r.max_gain ?? 0) * 100).toFixed(1)}%</Tag>
+            <Tag color={semanticColor(r.max_drawdown)}>最大回 {((r.max_drawdown ?? 0) * 100).toFixed(1)}%</Tag>
+          </div>
+        </Card>
+      )}
+    />
+  );
 }
