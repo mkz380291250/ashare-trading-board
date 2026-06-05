@@ -24,16 +24,16 @@ export function BacktestPage() {
   return (
     <div style={{ display: "grid", gap: 16 }}>
       <Row gutter={16}>
-        <Col span={6}><Card><Statistic title="年化收益" value={pct(m.annualized_return)} /></Card></Col>
-        <Col span={6}><Card><Statistic title="信息比率(vs沪深300)" value={m.information_ratio ?? "-"}
+        <Col xs={12} md={6}><Card><Statistic title="年化收益" value={pct(m.annualized_return)} /></Card></Col>
+        <Col xs={12} md={6}><Card><Statistic title="信息比率(vs沪深300)" value={m.information_ratio ?? "-"}
           precision={2} /></Card></Col>
-        <Col span={6}><Card><Statistic title="最大回撤" value={pct(m.max_drawdown)} /></Card></Col>
-        <Col span={6}><Card><Statistic title="累计收益" value={pct(m.cum_return)} /></Card></Col>
+        <Col xs={12} md={6}><Card><Statistic title="最大回撤" value={pct(m.max_drawdown)} /></Card></Col>
+        <Col xs={12} md={6}><Card><Statistic title="累计收益" value={pct(m.cum_return)} /></Card></Col>
       </Row>
       <Card title="因子 IC">
         <Row gutter={16}>
-          <Col span={8}><Statistic title="IC 均值" value={f.ic_mean ?? "-"} precision={4} /></Col>
-          <Col span={8}><Statistic title="RankIC 均值" value={f.rank_ic_mean ?? "-"} precision={4} /></Col>
+          <Col xs={12} md={8}><Statistic title="IC 均值" value={f.ic_mean ?? "-"} precision={4} /></Col>
+          <Col xs={12} md={8}><Statistic title="RankIC 均值" value={f.rank_ic_mean ?? "-"} precision={4} /></Col>
         </Row>
         <div style={{ marginTop: 16 }}>
           {f.layer_returns?.length
@@ -41,7 +41,7 @@ export function BacktestPage() {
             : <Empty description="无分层数据" />}
         </div>
       </Card>
-      <Descriptions title="回测元信息" bordered size="small" column={2}>
+      <Descriptions title="回测元信息" bordered size="small" column={{ xs: 1, md: 2 }}>
         <Descriptions.Item label="信号">{run.signal}</Descriptions.Item>
         <Descriptions.Item label="区间">{run.start} ~ {run.end}</Descriptions.Item>
         <Descriptions.Item label="参数">{JSON.stringify(run.params)}</Descriptions.Item>

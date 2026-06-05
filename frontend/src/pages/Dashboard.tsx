@@ -27,9 +27,9 @@ export function Dashboard() {
   return (
     <div style={{ display: "grid", gap: 16 }}>
       <Row gutter={16}>
-        <Col span={8}><Card><Statistic title="现金" value={acc.cash} precision={2} /></Card></Col>
-        <Col span={8}><Card><Statistic title="持仓成本市值" value={mv} precision={2} /></Card></Col>
-        <Col span={8}><Card><Statistic title="总(现金+持仓)" value={acc.cash + mv} precision={2} /></Card></Col>
+        <Col xs={24} sm={8}><Card><Statistic title="现金" value={acc.cash} precision={2} /></Card></Col>
+        <Col xs={24} sm={8}><Card><Statistic title="持仓成本市值" value={mv} precision={2} /></Card></Col>
+        <Col xs={24} sm={8}><Card><Statistic title="总(现金+持仓)" value={acc.cash + mv} precision={2} /></Card></Col>
       </Row>
       <Card title="下单(人机协同)"><TradeForm accountId={ACCOUNT_ID} onDone={load} /></Card>
       <Card title="持仓"><PositionsTable positions={acc.positions} /></Card>
