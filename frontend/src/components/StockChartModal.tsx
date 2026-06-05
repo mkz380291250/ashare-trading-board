@@ -4,6 +4,10 @@ import { apiGet } from "../api/client";
 import { KLineChart, type Bar } from "./KLineChart";
 
 const FREQS = ["1min", "5min", "15min", "30min", "60min"];
+// 每个周期取多长的历史窗口(天)。周期越大看得越远(库里约存 320 根/周期)。
+const DAYS: Record<string, number> = {
+  "1min": 3, "5min": 12, "15min": 30, "30min": 60, "60min": 160,
+};
 
 type KlineResp = {
   code: string; name: string; freq: string;
@@ -25,7 +29,8 @@ export function StockChartModal({ code, name, open, onClose }: {
     const load = async () => {
       setLoading(true);
       try {
-        const r = await apiGet<KlineResp>(`/api/kline/${code}?freq=${freq}&days=2`);
+        const r = await apiGet<KlineResp>(
+          `/api/kline/${code}?freq=${freq}&days=${DAYS[freq] ?? 5}`);
         if (!cancelled) setBars(r.bars);
       } catch {
         /* 网络错误:保留上次数据 */
