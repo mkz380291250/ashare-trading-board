@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { Table, Tag, Button, Space, Empty, Typography } from "antd";
+import { Tag, Button, Space, Empty, Typography, Card } from "antd";
 import { apiGet, apiPost } from "../api/client";
+import { ResponsiveList } from "./ResponsiveList";
 
 type Decision = { id: number; code: string; action: string; confidence: number;
   shares: number; status: string; reasoning: string };
@@ -34,9 +35,28 @@ export function DecisionsPanel() {
           </Space>) : null },
   ];
   return (
-    <Table rowKey="id" size="small" pagination={false} dataSource={rows} columns={columns}
-      expandable={{ expandedRowRender: (d) =>
-        <Typography.Paragraph style={{ whiteSpace: "pre-wrap", margin: 0 }}>
-          {d.reasoning}</Typography.Paragraph> }} />
+    <ResponsiveList<Decision>
+      rowKey="id"
+      dataSource={rows}
+      columns={columns}
+      renderCard={(d) => (
+        <Card size="small">
+          <Space wrap>
+            <b>{d.code}</b>
+            <Tag color={color[d.action] || "default"}>{d.action}</Tag>
+            <span>{d.confidence.toFixed(2)}</span>
+            {d.status === "PENDING" && (
+              <Space>
+                <Button size="small" type="primary" onClick={() => act(d.id, "approve")}>批准</Button>
+                <Button size="small" danger onClick={() => act(d.id, "reject")}>驳回</Button>
+              </Space>
+            )}
+          </Space>
+          <Typography.Paragraph ellipsis={{ rows: 3, expandable: true }}>
+            {d.reasoning}
+          </Typography.Paragraph>
+        </Card>
+      )}
+    />
   );
 }

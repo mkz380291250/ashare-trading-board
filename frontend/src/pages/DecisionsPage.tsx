@@ -1,9 +1,10 @@
 import { useEffect, useState, useCallback } from "react";
-import { Row, Col, Card, Table, Tag, Empty } from "antd";
+import { Row, Col, Card, Tag, Empty, Space } from "antd";
 import { apiGet, apiPost } from "../api/client";
 import { ConclusionCard, type Conclusion } from "../components/ConclusionCard";
 import { RoleStages } from "../components/RoleStages";
 import type { Role } from "../components/RoleCard";
+import { ResponsiveList } from "../components/ResponsiveList";
 
 type ListItem = { id: number; code: string; action: string; status: string };
 type Detail = Conclusion & { roles: Role[] };
@@ -43,16 +44,25 @@ export function DecisionsPage() {
 
   return (
     <Row gutter={16}>
-      <Col span={8}>
+      <Col xs={24} md={8}>
         <Card title="决策列表">
-          {rows.length ? (
-            <Table rowKey="id" size="small" pagination={false} dataSource={rows}
-              columns={columns}
-              onRow={(r) => ({ onClick: () => setSel(r.id), style: { cursor: "pointer" } })} />
-          ) : <Empty description="暂无决策,先跑 run_decisions.py" />}
+          <ResponsiveList<ListItem>
+            dataSource={rows}
+            columns={columns}
+            rowKey="id"
+            onRowClick={(r) => setSel(r.id)}
+            empty={<Empty description="暂无决策,先跑 run_decisions.py" />}
+            renderCard={(r) => (
+              <Card size="small"><Space split="·">
+                <b>{r.code}</b>
+                <Tag color={ACTION_COLOR[r.action] || "default"}>{r.action}</Tag>
+                <span>{r.status}</span>
+              </Space></Card>
+            )}
+          />
         </Card>
       </Col>
-      <Col span={16}>
+      <Col xs={24} md={16}>
         {detail ? (
           <>
             <ConclusionCard c={detail}
