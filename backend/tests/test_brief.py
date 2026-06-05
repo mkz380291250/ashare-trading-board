@@ -34,3 +34,14 @@ def test_brief_renders_research_section():
 def test_brief_research_absent_says_no_data():
     b = build_brief("X", [10.0], {}, {}, holding=None)
     assert "无研报数据" in b.to_prompt()
+
+
+def test_brief_renders_financials_section():
+    b = build_brief("X", [10.0], {}, {}, holding=None,
+                    financials={"营收_亿": 5.0, "ROE": 2.59, "现金流净利比": 2.99})
+    p = b.to_prompt()
+    assert "财报数据" in p and "营收_亿" in p and "现金流净利比" in p
+
+
+def test_brief_financials_absent_says_no():
+    assert "财报数据: 无" in build_brief("X", [10.0], {}, {}, holding=None).to_prompt()

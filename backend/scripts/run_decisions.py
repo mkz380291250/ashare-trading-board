@@ -11,6 +11,7 @@ import app.db.models  # noqa: F401
 from app.db.models import Position, DiscoveryPick
 from app.data.quote_store import QuoteStore
 from app.data.fundamentals import build_fundamentals
+from app.data.financials import FinancialsSource
 from app.screener.earnings import TushareEarningsSource
 from app.research.store import ResearchStore
 from app.decision.llm import LocalClaudeClient, DeepSeekClient
@@ -35,9 +36,11 @@ def main():
     research = ResearchStore(session)
     try:
         import tushare as ts
-        earnings = TushareEarningsSource(ts.pro_api(s.tushare_token))
+        _pro = ts.pro_api(s.tushare_token)
+        earnings = TushareEarningsSource(_pro)
+        financials = FinancialsSource(_pro)
     except Exception:
-        earnings = None
+        earnings = financials = None
 
     as_of = store.trading_dates(date.today(), 1)[0]
     holds = {p.code: p for p in session.scalars(select(Position)).all()}
@@ -58,7 +61,9 @@ def main():
               "rating_consensus": rnote.rating_consensus,
               "summary": rnote.summary} if rnote else None)
         fundamentals = build_fundamentals(session, code, as_of, earnings=earnings)
-        briefs.append(build_brief(code, closes, {}, fundamentals, holding, research=r))
+        fin = financials.summary(code) if financials is not None else None
+        briefs.append(build_brief(code, closes, {}, fundamentals, holding,
+                                  research=r, financials=fin))
 
     broker = PaperBroker(session)
     runner = DecisionRunner(session, DecisionGraph(_llm(s), rounds=s.debate_rounds),

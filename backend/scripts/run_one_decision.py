@@ -12,6 +12,7 @@ from app.db.models import DecisionJob
 from app.data.quote_store import QuoteStore
 from app.data.prices import latest_close
 from app.data.fundamentals import build_fundamentals
+from app.data.financials import FinancialsSource
 from app.screener.earnings import TushareEarningsSource
 from app.research.store import ResearchStore
 from app.research.ondemand import research_note_for
@@ -27,7 +28,7 @@ from app.trading.broker import PaperBroker
 
 
 def run_one(session, job_id, code, graph, store, research, earnings=None,
-            research_source=None, research_analyzer=None):
+            research_source=None, research_analyzer=None, financials=None):
     job = session.get(DecisionJob, job_id)
     job.status = "RUNNING"; session.commit()
     try:
@@ -42,7 +43,8 @@ def run_one(session, job_id, code, graph, store, research, earnings=None,
             r = ({"sentiment": rnote.sentiment, "rating_consensus": rnote.rating_consensus,
                   "summary": rnote.summary} if rnote else None)
         fundamentals = build_fundamentals(session, code, as_of, earnings=earnings)
-        brief = build_brief(code, closes, {}, fundamentals, None, research=r)
+        fin = financials.summary(code) if financials is not None else None
+        brief = build_brief(code, closes, {}, fundamentals, None, research=r, financials=fin)
         runner = DecisionRunner(session, graph, broker=PaperBroker(session),
                                 account_id=1, price_of=lambda c: latest_close(store, c, as_of))
         out = runner.run(as_of, [brief])
@@ -67,11 +69,12 @@ def main():
     engine = make_engine(); Base.metadata.create_all(engine)
     session = make_session_factory(engine)()
     llm = _llm(s)
-    research_source = research_analyzer = earnings = None
+    research_source = research_analyzer = earnings = financials = None
     try:
         import tushare as ts
         pro = ts.pro_api(s.tushare_token)
         earnings = TushareEarningsSource(pro)
+        financials = FinancialsSource(pro, limiter=RateLimiter(s.research_max_per_min, 60.0))
         research_source = CompositeSource([
             TushareResearchSource(pro, limiter=RateLimiter(s.research_max_per_min, 60.0)),
             EastMoneyNewsSource()])
@@ -80,7 +83,8 @@ def main():
         pass  # 数据源初始化失败也不挡决策(走缓存/中性)
     run_one(session, a.job, a.code, DecisionGraph(llm, rounds=s.debate_rounds),
             QuoteStore(session), ResearchStore(session), earnings=earnings,
-            research_source=research_source, research_analyzer=research_analyzer)
+            research_source=research_source, research_analyzer=research_analyzer,
+            financials=financials)
     print(f"JOB_DONE job={a.job}", flush=True)
 
 

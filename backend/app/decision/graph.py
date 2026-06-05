@@ -25,8 +25,9 @@ class DecisionGraph:
 
         pv = self._agent("量价分析师").run(bp); reports.append(pv)
         fa = self._agent("基本面分析师").run(bp); reports.append(fa)
+        cf = self._agent("财报分析师").run(bp); reports.append(cf)
         nr = self._agent("新闻研报分析师").run(bp); reports.append(nr)
-        analyst_ctx = f"{pv.text}\n{fa.text}\n{nr.text}"
+        analyst_ctx = f"{pv.text}\n{fa.text}\n{cf.text}\n{nr.text}"
 
         bull_text, bear_text = "", ""
         for _ in range(self.rounds):
