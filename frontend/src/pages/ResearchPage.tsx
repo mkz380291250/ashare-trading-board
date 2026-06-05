@@ -4,7 +4,7 @@ import { apiGet } from "../api/client";
 import { ResponsiveList } from "../components/ResponsiveList";
 import { semanticColor } from "../theme/tokens";
 
-type Note = { code: string; as_of: string; sentiment: number;
+type Note = { code: string; name?: string; as_of: string; sentiment: number;
   rating_consensus: string; summary: string };
 
 export function ResearchPage() {
@@ -17,7 +17,8 @@ export function ResearchPage() {
   }, []);
 
   const columns = [
-    { title: "代码", dataIndex: "code", key: "code" },
+    { title: "代码", dataIndex: "code", key: "code",
+      render: (_: string, n: Note) => n.name ? `${n.name}(${n.code})` : n.code },
     { title: "情绪", dataIndex: "sentiment", key: "s",
       render: (v: number) => <Tag color={semanticColor(v)}>{v.toFixed(2)}</Tag> },
     { title: "日期", dataIndex: "as_of", key: "d" },
@@ -35,7 +36,7 @@ export function ResearchPage() {
             renderCard={(n) => (
               <Card size="small">
                 <Space split="·">
-                  <b>{n.code}</b>
+                  <b>{n.name ? `${n.name}(${n.code})` : n.code}</b>
                   <Tag color={semanticColor(n.sentiment)}>{n.sentiment.toFixed(2)}</Tag>
                   <span>{n.as_of}</span>
                 </Space>

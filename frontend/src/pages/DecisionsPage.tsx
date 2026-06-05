@@ -7,7 +7,7 @@ import { ManualTrade } from "../components/ManualTrade";
 import type { Role } from "../components/RoleCard";
 import { ResponsiveList } from "../components/ResponsiveList";
 
-type ListItem = { id: number; code: string; action: string; status: string };
+type ListItem = { id: number; code: string; name?: string; action: string; status: string };
 type Detail = Conclusion & { roles: Role[] };
 type Job = { id: number; code: string; status: string; decision_id: number | null };
 
@@ -58,7 +58,8 @@ export function DecisionsPage() {
   };
 
   const columns = [
-    { title: "代码", dataIndex: "code", key: "code" },
+    { title: "代码", dataIndex: "code", key: "code",
+      render: (_: string, r: ListItem) => r.name ? `${r.name}(${r.code})` : r.code },
     { title: "动作", dataIndex: "action", key: "action",
       render: (a: string) => <Tag color={ACTION_COLOR[a] || "default"}>{a}</Tag> },
     { title: "状态", dataIndex: "status", key: "status" },
@@ -91,7 +92,7 @@ export function DecisionsPage() {
               empty={<Empty description="暂无决策,先跑 run_decisions.py" />}
               renderCard={(r) => (
                 <Card size="small"><Space split="·">
-                  <b>{r.code}</b>
+                  <b>{r.name ? `${r.name}(${r.code})` : r.code}</b>
                   <Tag color={ACTION_COLOR[r.action] || "default"}>{r.action}</Tag>
                   <span>{r.status}</span>
                 </Space></Card>

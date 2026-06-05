@@ -4,7 +4,7 @@ import { apiGet } from "../api/client";
 import { ResponsiveList } from "./ResponsiveList";
 import { semanticColor } from "../theme/tokens";
 
-type Pick = { as_of: string; code: string; rank: number; score: number;
+type Pick = { as_of: string; code: string; name?: string; rank: number; score: number;
   factors: Record<string, number> };
 
 export function DiscoveryPanel() {
@@ -15,7 +15,8 @@ export function DiscoveryPanel() {
   if (!picks.length) return <Empty description="机会榜暂无数据" />;
   const columns = [
     { title: "#", dataIndex: "rank", key: "rank" },
-    { title: "代码", dataIndex: "code", key: "code" },
+    { title: "代码", dataIndex: "code", key: "code",
+      render: (_: string, p: Pick) => p.name ? `${p.name}(${p.code})` : p.code },
     { title: "评分", dataIndex: "score", key: "score",
       render: (v: number) => v.toFixed(3) },
     { title: "因子", dataIndex: "factors", key: "factors",
@@ -30,7 +31,7 @@ export function DiscoveryPanel() {
       renderCard={(p) => (
         <Card size="small">
           <Space split="·">
-            <b>{p.rank}. {p.code}</b>
+            <b>{p.rank}. {p.name ? `${p.name}(${p.code})` : p.code}</b>
             <Tag color={semanticColor(p.score - 0.5)}>
               评分 {p.score.toFixed(3)}
             </Tag>

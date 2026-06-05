@@ -3,7 +3,7 @@ import { ResponsiveList } from "./ResponsiveList";
 import { semanticColor } from "../theme/tokens";
 
 type Pick = {
-  code: string; theme: string; first_selected_on: string; entry_close: number;
+  code: string; name?: string; theme: string; first_selected_on: string; entry_close: number;
   ret_t1: number | null; ret_t3: number | null;
   ret_t5: number | null; ret_t10: number | null;
 };
@@ -11,7 +11,8 @@ type Pick = {
 const pct = (v: number | null) => v == null ? "-" : `${(v * 100).toFixed(1)}%`;
 
 const columns = [
-  { title: "代码", dataIndex: "code", key: "code" },
+  { title: "代码", dataIndex: "code", key: "code",
+    render: (_: string, p: Pick) => p.name ? `${p.name}(${p.code})` : p.code },
   { title: "题材", dataIndex: "theme", key: "theme",
     render: (t: string) => <Tag color="blue">{t}</Tag> },
   { title: "入选日", dataIndex: "first_selected_on", key: "d" },
@@ -34,7 +35,7 @@ export function PicksTable({ picks, forceMobile }: { picks: Pick[]; forceMobile?
       renderCard={(p) => (
         <Card size="small">
           <Space split="·">
-            <b>{p.code}</b><Tag>{p.theme}</Tag><span>{p.first_selected_on}</span>
+            <b>{p.name ? `${p.name}(${p.code})` : p.code}</b><Tag>{p.theme}</Tag><span>{p.first_selected_on}</span>
           </Space>
           <div style={{ marginTop: 6 }}>
             {(["ret_t1", "ret_t3", "ret_t5", "ret_t10"] as const).map((k) => (
