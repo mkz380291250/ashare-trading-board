@@ -1,10 +1,11 @@
-// API base resolution, in priority order:
-// 1. VITE_API_BASE if explicitly set (incl. "" for same-origin).
-// 2. Dev (vite): "" → same-origin relative paths, forwarded by vite's /api proxy
-//    (works when the page is reached through a tunnel/proxy that can't see :8000).
-// 3. Prod: backend on :8000 of whatever host served the page.
-const BASE = import.meta.env.VITE_API_BASE ??
-  (import.meta.env.DEV ? "" : `${window.location.protocol}//${window.location.hostname}:8000`);
+// API base resolution:
+// - Default "" → same-origin relative paths. Works in dev (vite /api proxy) and in
+//   prod (this deployment serves the SPA behind Caddy, which reverse-proxies /api/*
+//   to the backend on the same origin). Same-origin avoids the cross-origin :8000
+//   trap: a separate :8000 host has no TLS here, so absolute URLs break the whole app.
+// - Override with VITE_API_BASE only for cross-origin setups (e.g. backend on a
+//   different host/port reachable directly).
+const BASE = import.meta.env.VITE_API_BASE ?? "";
 
 export async function apiGet<T>(path: string): Promise<T> {
   const r = await fetch(`${BASE}${path}`);
