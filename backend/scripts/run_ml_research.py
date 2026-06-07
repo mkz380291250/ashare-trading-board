@@ -22,7 +22,7 @@ from app.backtest.factor import factor_report
 from app.backtest.strategy import run_strategy_backtest
 from app.backtest.store import BacktestStore
 from app.quant.ml_pipeline import (
-    make_segments, make_handler, make_dataset, prepare_xy,
+    make_segments, make_handler, make_dataset, prepare_xy, cs_zscore,
     train_lgb, predict_scores, feature_importance)
 from app.quant.factor_select import rank_importance, candidate_subsets, pick_best
 
@@ -50,8 +50,15 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--universe", default="investable")
     p.add_argument("--horizon", type=int, default=5)
-    p.add_argument("--topk", type=int, default=20)
+    p.add_argument("--topk", type=int, default=50)
     p.add_argument("--n-drop", type=int, default=5)
+    p.add_argument("--select-metric", default="rank_ic_ir",
+                   help="选最优组合的口径:rank_ic_ir(默认)/information_ratio/"
+                        "annualized_return")
+    p.add_argument("--no-norm-label", action="store_true",
+                   help="关闭标签按日截面标准化(默认开)")
+    p.add_argument("--norm-features", action="store_true",
+                   help="开启因子按日截面标准化(吃内存,全量慎用)")
     p.add_argument("--train", default="2021-01-04:2024-06-30")
     p.add_argument("--valid", default="2024-07-01:2025-06-30")
     p.add_argument("--test", default="2025-07-01:2026-06-05")
@@ -92,8 +99,18 @@ def main():
     print(f"shapes train={x_tr.shape} valid={x_va.shape} test={x_te.shape}",
           flush=True)
 
+    # 因子按日截面标准化(可选,内存重)
+    if args.norm_features:
+        x_tr, x_va, x_te = cs_zscore(x_tr), cs_zscore(x_va), cs_zscore(x_te)
+    # 训练标签按日截面标准化(默认开)——把目标变成相对排序,提升 RankIC。
+    # 评估仍用原始收益 y_te,衡量对真实收益的预测力。
+    yt_tr = y_tr if args.no_norm_label else cs_zscore(y_tr)
+    yt_va = y_va if args.no_norm_label else cs_zscore(y_va)
+    print(f"norm: label={'off' if args.no_norm_label else 'on'} "
+          f"features={'on' if args.norm_features else 'off'}", flush=True)
+
     # 全因子模型
-    booster = train_lgb(x_tr, y_tr, x_va, y_va)
+    booster = train_lgb(x_tr, yt_tr, x_va, yt_va)
     pred = predict_scores(booster, x_te)
     rep = factor_report(pred, y_te)
     imp = feature_importance(booster)
@@ -116,7 +133,7 @@ def main():
     subsets = candidate_subsets(ranked, sizes)
     combo_results = {}
     for name, feats in subsets.items():
-        b = train_lgb(x_tr, y_tr, x_va, y_va, feats=feats)
+        b = train_lgb(x_tr, yt_tr, x_va, yt_va, feats=feats)
         sc = predict_scores(b, x_te, feats=feats)
         bt = run_strategy_backtest(sc, start=te[0], end=bt_end,
                                    topk=args.topk, n_drop=args.n_drop)
@@ -128,13 +145,18 @@ def main():
               f"mdd={bt.get('max_drawdown')} rank_ic={r['rank_ic_mean']:.4f}",
               flush=True)
 
-    best_name, best_metrics = pick_best(combo_results, metric="information_ratio")
-    print(f"BEST combo = {best_name}: {best_metrics}", flush=True)
+    best_name, best_metrics = pick_best(combo_results, metric=args.select_metric)
+    print(f"BEST combo = {best_name} (by {args.select_metric}): {best_metrics}",
+          flush=True)
 
     report = {
         "as_of": te[1].isoformat(),
         "universe": universe,
         "horizon": args.horizon,
+        "select_metric": args.select_metric,
+        "norm_label": not args.no_norm_label,
+        "norm_features": args.norm_features,
+        "topk": args.topk, "n_drop": args.n_drop,
         "segments": {k: [d.isoformat() for d in v] for k, v in segments.items()},
         "full_model": {"factor_report": rep, "top_factors": ranked[:30]},
         "combos": combo_results,

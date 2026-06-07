@@ -21,6 +21,16 @@ DEFAULT_LGB_PARAMS = {
 }
 
 
+def cs_zscore(data):
+    """按日截面标准化(z-score)。data 为 MultiIndex(datetime,instrument) 的
+    Series 或 DataFrame。零方差/缺失日置 0。trees 对单因子单调变换不敏感,但截面
+    标准化让同日跨股票可比、跨期一致,且把标签变成相对排序目标(提升 RankIC)。"""
+    import numpy as np
+    g = data.groupby(level="datetime")
+    z = (data - g.transform("mean")) / g.transform("std")
+    return z.replace([np.inf, -np.inf], np.nan).fillna(0.0)
+
+
 def label_expr(horizon: int):
     """未来 horizon 日收益标签:T+1 买入、T+1+horizon 卖出。
     返回 (exprs, names),供覆写 Alpha158.get_label_config。"""
