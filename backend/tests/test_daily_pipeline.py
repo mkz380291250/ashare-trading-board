@@ -61,9 +61,22 @@ def test_pipeline_idempotent_skips_already_decided():
               min_confidence=0.6, max_debate=32)
     run_daily_decisions(s, date(2026, 6, 4), _ranking(100), set(), **kw)
     cash_after_first = s.get(Account, 1).cash
-    run_daily_decisions(s, date(2026, 6, 4), _ranking(100), set(), **kw)
+    summary2 = run_daily_decisions(s, date(2026, 6, 4), _ranking(100), set(), **kw)
+    assert summary2["n_debated"] == 0
+    assert summary2["candidates"] == []
     assert s.query(Decision).count() == 3          # 不新增决策
     assert s.get(Account, 1).cash == cash_after_first   # 不重复下单
+
+
+def test_pipeline_debates_held_position():
+    s = _sess()
+    summary = run_daily_decisions(
+        s, date(2026, 6, 4), _ranking(100), held_codes={"c50"},
+        graph=_Graph(), brief_builder=_bb, broker=PaperBroker(s),
+        price_of=lambda c: 100.0, target=3, quality_pctl=0.30, min_confidence=0.6,
+        max_debate=32)
+    assert "c50" in summary["candidates"]          # 持仓必辩
+    assert s.query(Decision).filter(Decision.code == "c50").count() == 1
 
 
 def test_today_decided_codes():

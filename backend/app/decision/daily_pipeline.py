@@ -22,7 +22,7 @@ def run_daily_decisions(session: Session, as_of: date,
                         ranking: list[tuple[str, float]], held_codes: set[str], *,
                         graph: DecisionGraph,
                         brief_builder: Callable[[list[str]], list[StockBrief]],
-                        broker: Optional[PaperBroker], price_of, target: int,
+                        broker: Optional[PaperBroker], price_of: Callable[[str], float], target: int,
                         quality_pctl: float, min_confidence: float, max_debate: int,
                         account_id: int = 1) -> dict:
     skip = today_decided_codes(session, as_of)
