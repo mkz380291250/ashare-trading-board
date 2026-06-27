@@ -9,6 +9,7 @@ from app.quant.factor_compose import composite_score
 from app.db.models import DiscoveryPick
 from app.factors.frozen import FrozenFactors
 from app.quant.factor_mine import FACTOR_LIBRARY, to_datetime_instrument
+from app.backtest.symbols import from_qlib_symbol
 
 
 def score_panel(panel: pd.DataFrame, signs: dict) -> pd.DataFrame:
@@ -46,7 +47,7 @@ def run_qlib_discovery(session: Session, as_of: date, frozen: FrozenFactors,
     panel = load_features_fn(insts, frozen.factors, as_of, lookback)
     score_df = score_panel(panel, frozen.signs)
     section = latest_section(score_df)
-    ranked = [(str(code), float(sc)) for code, sc in section.items()]
+    ranked = [(from_qlib_symbol(str(code)), float(sc)) for code, sc in section.items()]
     session.execute(delete(DiscoveryPick).where(DiscoveryPick.as_of == as_of))
     for i, (code, sc) in enumerate(ranked, 1):
         session.add(DiscoveryPick(as_of=as_of, code=code, rank=i, score=sc,
