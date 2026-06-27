@@ -13,9 +13,8 @@ def select_debate_candidates(ranking: list[tuple[str, float]], held: set[str], *
     for code, _ in ranking:
         if code in held and code not in skip:
             debate.append(code)
-    for code in held:
-        if code not in in_ranking and code not in skip:
-            debate.append(code)
+    for code in sorted(held - in_ranking - skip):
+        debate.append(code)
     # ② 买入候选填空位,卡质量门
     slots = max(0, target - len(held))
     floor_idx = int(quality_pctl * len(ranking))
