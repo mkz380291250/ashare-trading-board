@@ -8,8 +8,7 @@ def test_run_all_includes_phase2_steps_in_order(monkeypatch):
                  "step_select", "step_debate", "step_mark"):
         monkeypatch.setattr(df, name, (lambda n=name: lambda: calls.append(n))())
     df.run_all()
-    assert calls == ["quotes", "qlib", "track", "select", "debate", "mark"] or \
-           calls == ["step_quotes", "step_qlib", "step_tracklist",
+    assert calls == ["step_quotes", "step_qlib", "step_tracklist",
                      "step_select", "step_debate", "step_mark"]
 
 
