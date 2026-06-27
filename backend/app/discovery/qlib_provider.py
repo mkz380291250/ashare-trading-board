@@ -11,6 +11,8 @@ def score_panel(panel: pd.DataFrame, signs: dict) -> pd.DataFrame:
 
 def latest_section(score_df: pd.DataFrame) -> pd.Series:
     """取最新 datetime 截面,返回 index=instrument 的降序 Series。"""
+    if score_df.empty:
+        return pd.Series(dtype=float, name="score")
     last = score_df.index.get_level_values("datetime").max()
     sec = score_df.xs(last, level="datetime")["score"]
     return sec.sort_values(ascending=False)

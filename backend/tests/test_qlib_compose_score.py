@@ -24,3 +24,10 @@ def test_latest_section_picks_last_day_sorted_desc():
     assert sec.index[0] == "A"
     assert sec.index[-1] == "C"
     assert sec.is_monotonic_decreasing
+
+
+def test_latest_section_empty_returns_empty_series():
+    import pandas as pd
+    empty = pd.DataFrame({"score": pd.Series(dtype=float)})
+    sec = latest_section(empty)
+    assert sec.empty
