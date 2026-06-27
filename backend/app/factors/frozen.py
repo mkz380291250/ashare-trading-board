@@ -22,15 +22,15 @@ def load_frozen(path: str | Path) -> FrozenFactors:
     p = Path(path)
     if not p.exists():
         raise FileNotFoundError(f"frozen factors not found at {p}")
-    return FrozenFactors(**json.loads(p.read_text()))
+    return FrozenFactors(**json.loads(p.read_text(encoding="utf-8")))
 
 
 def save_frozen(ff: FrozenFactors, path: str | Path) -> None:
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     if p.exists():
-        old = json.loads(p.read_text())
+        old = json.loads(p.read_text(encoding="utf-8"))
         archive = p.parent / "archive"
         archive.mkdir(parents=True, exist_ok=True)
         shutil.copy(p, archive / f"frozen_composite_{old.get('as_of', 'unknown')}.json")
-    p.write_text(json.dumps(asdict(ff), ensure_ascii=False, indent=2))
+    p.write_text(json.dumps(asdict(ff), ensure_ascii=False, indent=2), encoding="utf-8")
