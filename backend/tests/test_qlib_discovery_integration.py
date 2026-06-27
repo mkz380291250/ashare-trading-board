@@ -1,5 +1,4 @@
 # backend/tests/test_qlib_discovery_integration.py
-from datetime import date
 from pathlib import Path
 import pytest
 from app.config import get_settings
