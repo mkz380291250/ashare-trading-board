@@ -44,7 +44,7 @@ def select_frozen(ranked: list[str], rank_ic: dict[str, float], corr: pd.DataFra
                   metrics: dict, threshold: float = 0.8) -> FrozenFactors:
     """按重要性降序的 ranked + 相关矩阵 corr 去重,符号由 rank_ic 方向定,等权。"""
     kept = dedup_by_correlation(ranked, corr, threshold=threshold)
-    signs = {f: sign_correct(rank_ic.get(f)) for f in kept}
+    signs = {f: sign_correct(rank_ic[f]) for f in kept}
     w = round(1.0 / len(kept), 6) if kept else 0.0
     weights = {f: w for f in kept}
     return FrozenFactors(as_of=as_of, factors=kept, signs=signs, weights=weights,

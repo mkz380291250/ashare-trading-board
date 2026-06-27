@@ -16,3 +16,7 @@ def test_select_dedup_and_signs():
     assert ff.signs == {"a": -1.0, "b": 1.0}   # a 反向、b 正向
     assert ff.weights == {"a": 0.5, "b": 0.5}  # 等权
     assert ff.horizon == 5
+    assert ff.universe == "investable"
+    assert ff.source_report == "factor_mining_2026-06-25"
+    assert ff.as_of == "2026-06-25"
+    assert ff.metrics_at_freeze == {"rank_ic_mean": 0.07}
