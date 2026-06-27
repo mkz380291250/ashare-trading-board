@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     enable_scheduler: bool = False         # 默认关,生产/部署时置 True
     daily_update_hour: int = 16            # 北京时间 16:00
     daily_update_minute: int = 0
+    target_positions: int = 15             # 组合目标持仓数(空位上界)
+    quality_pctl: float = 0.30             # 买入候选须在全市场复合分前 30%
+    min_confidence: float = 0.6            # BUY/SELL 自动执行的置信度门
+    max_debate: int = 32                   # 单日辩论上限(防烧 LLM)
 
 
 def get_settings() -> Settings:
