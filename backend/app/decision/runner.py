@@ -11,12 +11,14 @@ from app.trading.broker import PaperBroker, InsufficientFunds, InsufficientShare
 class DecisionRunner:
     def __init__(self, session: Session, graph: DecisionGraph,
                  broker: Optional[PaperBroker] = None, account_id: int = 1,
-                 price_of: Optional[Callable[[str], Optional[float]]] = None):
+                 price_of: Optional[Callable[[str], Optional[float]]] = None,
+                 min_confidence: float = 0.0):
         self.s = session
         self.graph = graph
         self.broker = broker
         self.account_id = account_id
         self.price_of = price_of
+        self.min_confidence = min_confidence
 
     def run(self, as_of: date, briefs: list[StockBrief]) -> list[Decision]:
         out = []
@@ -29,17 +31,22 @@ class DecisionRunner:
             if self.broker is not None:
                 status = "APPROVED"
                 if d.action in ("BUY", "SELL") and d.shares > 0:
-                    price = self.price_of(brief.code) if self.price_of else None
-                    if price:
-                        try:
-                            if d.action == "BUY":
-                                self.broker.buy(self.account_id, brief.code, price, d.shares, as_of)
-                            else:
-                                self.broker.sell(self.account_id, brief.code, price, d.shares, as_of)
-                        except (InsufficientFunds, InsufficientShares) as e:
-                            reasoning += f"\n\n⚠️ 自动执行失败:{e}"
+                    if d.confidence < self.min_confidence:
+                        status = "LOW_CONF"
+                        reasoning += (f"\n\n⚠️ 置信度 {d.confidence} < "
+                                      f"{self.min_confidence},跳过自动执行")
                     else:
-                        reasoning += "\n\n⚠️ 自动执行跳过:无最新价"
+                        price = self.price_of(brief.code) if self.price_of else None
+                        if price:
+                            try:
+                                if d.action == "BUY":
+                                    self.broker.buy(self.account_id, brief.code, price, d.shares, as_of)
+                                else:
+                                    self.broker.sell(self.account_id, brief.code, price, d.shares, as_of)
+                            except (InsufficientFunds, InsufficientShares) as e:
+                                reasoning += f"\n\n⚠️ 自动执行失败:{e}"
+                        else:
+                            reasoning += "\n\n⚠️ 自动执行跳过:无最新价"
             row = Decision(as_of=as_of, code=brief.code, action=d.action,
                            confidence=d.confidence, shares=d.shares,
                            reasoning=reasoning, status=status, created_at=as_of)
