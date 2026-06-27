@@ -80,13 +80,17 @@ def step_debate() -> None:
     store = QuoteStore(session)
     as_of = store.trading_dates(date.today(), 1)[0]
     top_date = session.scalar(select(func.max(DiscoveryPick.as_of)))
+    if top_date != as_of:
+        raise RuntimeError(
+            f"step_debate: 无当日选股产物(最新={top_date}, 期望={as_of}),跳过")
     ranking = [(r.code, r.score) for r in session.scalars(
         select(DiscoveryPick).where(DiscoveryPick.as_of == top_date)
         .order_by(DiscoveryPick.rank)).all()] if top_date else []
     if not ranking:
         raise RuntimeError("step_debate: 无 DiscoveryPick 产物,跳过(先跑 step_select)")
-    held = {p.code for p in session.scalars(
+    holds = {p.code: p for p in session.scalars(
         select(Position).where(Position.account_id == 1)).all()}
+    held = set(holds)
 
     def brief_builder(codes):
         start = date(as_of.year - 1, as_of.month, as_of.day)
@@ -94,7 +98,9 @@ def step_debate() -> None:
         for code in codes:
             bars = store.get_bars(code, start, as_of)
             closes = [b.close for b in bars][-20:]
-            out.append(build_brief(code, closes, {}, {}, None))
+            h = holds.get(code)
+            holding = {"shares": h.shares, "cost": h.cost} if h else None
+            out.append(build_brief(code, closes, {}, {}, holding))
         return out
 
     summary = run_daily_decisions(
