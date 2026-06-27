@@ -14,7 +14,8 @@ def build_daily_summary(session: Session, as_of: date, account_id: int = 1) -> s
         Position.account_id == account_id)).all()
     acc = session.get(Account, account_id)
     snaps = session.scalars(select(EquitySnapshot).where(
-        EquitySnapshot.account_id == account_id).order_by(EquitySnapshot.as_of)).all()
+        EquitySnapshot.account_id == account_id,
+        EquitySnapshot.as_of <= as_of).order_by(EquitySnapshot.as_of)).all()
 
     lines = [f"📊 {as_of} 交易日报"]
     if buys:

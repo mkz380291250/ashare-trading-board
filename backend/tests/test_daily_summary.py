@@ -28,7 +28,7 @@ def test_summary_lists_today_trades_and_drawdown():
     assert "600519.SH" in text
     assert "买" in text
     # 峰值 1_200_000 → 当前 1_020_000,回撤 -15%
-    assert "-15" in text
+    assert "-15.0%" in text
     assert "|" not in text and "---" not in text       # 不含 markdown 表格
 
 
