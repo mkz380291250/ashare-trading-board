@@ -16,7 +16,12 @@ def _session():
     return make_session_factory(eng)()
 
 
+_captured = {}
+
+
 def _fake_features(insts, factors, as_of, lookback):
+    _captured["as_of"] = as_of
+    _captured["lookback"] = lookback
     idx = pd.MultiIndex.from_product(
         [pd.to_datetime(["2026-06-24", "2026-06-25"]), insts],
         names=["datetime", "instrument"])
@@ -36,6 +41,8 @@ def test_run_qlib_discovery_writes_full_ranking():
     assert rows[0].rank == 1
     assert [r.code for r in rows] == [c for c, _ in out]   # 落库顺序=返回顺序
     assert json.loads(rows[0].factors)         # factors 是合法 JSON
+    assert _captured["as_of"] == date(2026, 6, 25)
+    assert _captured["lookback"] == 60
 
 
 def test_run_qlib_discovery_overwrites_same_day():

@@ -1,5 +1,5 @@
 """qlib 复合因子选股:加载冻结产物,对全市场打分取最新交易日截面排序。
-纯逻辑(score_panel/latest_section)不依赖 qlib;qlib 取数在 score_universe 里。"""
+纯逻辑(score_panel/latest_section)不依赖 qlib;qlib 取数在 load_features 里。"""
 import json
 from datetime import date
 import pandas as pd
