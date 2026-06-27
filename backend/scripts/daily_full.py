@@ -9,13 +9,32 @@ from datetime import date
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from sqlalchemy import select, func
 from app.config import get_settings
 from app.db.database import make_engine, make_session_factory
 import app.db.models  # noqa: F401
 from app.data.quote_store import QuoteStore
 from app.screener.tracklist import Tracker
+from app.db.models import Position, DiscoveryPick
+from app.data.prices import DictPriceProvider, latest_close
+from app.trading.broker import PaperBroker
+from app.decision.graph import DecisionGraph
+from app.decision.brief import build_brief
+from app.decision.llm import LocalClaudeClient, DeepSeekClient
+from app.decision.daily_pipeline import run_daily_decisions
+from app.reporting.daily_summary import build_daily_summary
 
 PY = sys.executable
+
+
+def _llm(s):
+    if s.decision_llm == "deepseek":
+        return DeepSeekClient(s.deepseek_api_key, s.deepseek_base_url, s.deepseek_model)
+    return LocalClaudeClient(bin_path=s.claude_bin)
+
+
+def _session():
+    return make_session_factory(make_engine())()
 
 
 def step_quotes() -> None:
@@ -39,9 +58,69 @@ def step_tracklist() -> None:
             tr.update_metrics(e.code, e.added_on, bars)
 
 
+def step_select() -> None:
+    from app.backtest.qlib_data import init_qlib
+    from app.factors.frozen import load_frozen
+    from app.discovery.qlib_provider import run_qlib_discovery
+    from scripts.freeze_factors import frozen_path
+    s = get_settings()
+    session = _session()
+    store = QuoteStore(session)
+    as_of = store.trading_dates(date.today(), 1)[0]
+    init_qlib(s.qlib_data_dir)
+    from qlib.data import D
+    frozen = load_frozen(frozen_path(s))
+    insts = D.list_instruments(D.instruments(frozen.universe), as_list=True)
+    run_qlib_discovery(session, as_of, frozen, insts)
+
+
+def step_debate() -> None:
+    s = get_settings()
+    session = _session()
+    store = QuoteStore(session)
+    as_of = store.trading_dates(date.today(), 1)[0]
+    top_date = session.scalar(select(func.max(DiscoveryPick.as_of)))
+    ranking = [(r.code, r.score) for r in session.scalars(
+        select(DiscoveryPick).where(DiscoveryPick.as_of == top_date)
+        .order_by(DiscoveryPick.rank)).all()] if top_date else []
+    if not ranking:
+        raise RuntimeError("step_debate: 无 DiscoveryPick 产物,跳过(先跑 step_select)")
+    held = {p.code for p in session.scalars(
+        select(Position).where(Position.account_id == 1)).all()}
+
+    def brief_builder(codes):
+        start = date(as_of.year - 1, as_of.month, as_of.day)
+        out = []
+        for code in codes:
+            bars = store.get_bars(code, start, as_of)
+            closes = [b.close for b in bars][-20:]
+            out.append(build_brief(code, closes, {}, {}, None))
+        return out
+
+    summary = run_daily_decisions(
+        session, as_of, ranking, held, graph=DecisionGraph(_llm(s), rounds=s.debate_rounds),
+        brief_builder=brief_builder, broker=PaperBroker(session),
+        price_of=lambda c: latest_close(store, c, as_of),
+        target=s.target_positions, quality_pctl=s.quality_pctl,
+        min_confidence=s.min_confidence, max_debate=s.max_debate, account_id=1)
+    print(build_daily_summary(session, as_of, account_id=1), flush=True)
+    print(f"DEBATE_DONE {summary}", flush=True)
+
+
+def step_mark() -> None:
+    session = _session()
+    store = QuoteStore(session)
+    as_of = store.trading_dates(date.today(), 1)[0]
+    held = session.scalars(select(Position).where(Position.account_id == 1)).all()
+    prices = DictPriceProvider({p.code: (latest_close(store, p.code, as_of) or 0.0)
+                               for p in held})
+    PaperBroker(session).mark_to_market(1, prices, as_of)
+
+
 def run_all() -> bool:
     ok = True
-    for step in (step_quotes, step_qlib, step_tracklist):
+    for step in (step_quotes, step_qlib, step_tracklist,
+                 step_select, step_debate, step_mark):
         try:
             step()
         except Exception:                       # noqa: BLE001 — 单步失败不阻断
