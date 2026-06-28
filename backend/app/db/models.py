@@ -1,6 +1,6 @@
 import json
 from datetime import date, datetime
-from sqlalchemy import String, Float, Integer, Date, DateTime, ForeignKey, Index
+from sqlalchemy import String, Float, Integer, Date, DateTime, ForeignKey, Index, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.database import Base
 
@@ -202,3 +202,30 @@ class MinuteQuote(Base):
 
 Index("ix_minute_quotes_code_freq_time",
       MinuteQuote.code, MinuteQuote.freq, MinuteQuote.trade_time)
+
+
+class DecisionOutcome(Base):
+    __tablename__ = "decision_outcomes"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    decision_id: Mapped[int] = mapped_column(ForeignKey("decisions.id"), unique=True)
+    code: Mapped[str] = mapped_column(String(16))
+    decided_on: Mapped[date] = mapped_column(Date)
+    action: Mapped[str] = mapped_column(String(8))
+    entry_close: Mapped[float] = mapped_column(Float)
+    ret_t1: Mapped[float | None] = mapped_column(Float, nullable=True)
+    ret_t3: Mapped[float | None] = mapped_column(Float, nullable=True)
+    ret_t5: Mapped[float | None] = mapped_column(Float, nullable=True)
+    ret_t10: Mapped[float | None] = mapped_column(Float, nullable=True)
+    hit: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    last_updated: Mapped[date] = mapped_column(Date)
+
+
+Index("ix_decision_outcomes_decided_on", DecisionOutcome.decided_on)
+
+
+class FactorICDaily(Base):
+    __tablename__ = "factor_ic_daily"
+    as_of: Mapped[date] = mapped_column(Date, primary_key=True)
+    ic: Mapped[float | None] = mapped_column(Float, nullable=True)
+    rank_ic: Mapped[float | None] = mapped_column(Float, nullable=True)
+    n: Mapped[int] = mapped_column(Integer, default=0)
