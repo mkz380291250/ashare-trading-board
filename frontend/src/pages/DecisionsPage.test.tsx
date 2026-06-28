@@ -27,6 +27,24 @@ describe("DecisionsPage", () => {
     expect(screen.getByText("放量突破")).toBeInTheDocument();
   });
 
+  it('shows composite score and LOW_CONF status', async () => {
+    vi.stubGlobal('fetch', vi.fn((url: string) => {
+      let body: unknown;
+      if (/\/decisions\/jobs/.test(url)) {
+        body = [];
+      } else if (/\/decisions\/\d/.test(url)) {
+        body = { id: 1, code: '600519.SH', name: '', action: 'BUY', confidence: 0.5, shares: 0, status: 'LOW_CONF', summary: '', roles: [] };
+      } else {
+        body = [{ id: 1, code: '600519.SH', name: '贵州茅台', action: 'BUY',
+                  confidence: 0.5, status: 'LOW_CONF', score: 0.95, reasoning: '' }];
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(body) }) as any;
+    }))
+    render(<DecisionsPage />)
+    expect(await screen.findByText('LOW_CONF')).toBeTruthy()
+    expect(await screen.findByText('0.95')).toBeTruthy()
+  })
+
   it("submitting a code calls /api/decisions/run", async () => {
     const calls: string[] = [];
     vi.stubGlobal("fetch", vi.fn((url: string, init?: any) => {

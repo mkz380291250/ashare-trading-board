@@ -8,7 +8,7 @@ import type { Role } from "../components/RoleCard";
 import { ResponsiveList } from "../components/ResponsiveList";
 import { StockLink } from "../components/StockLink";
 
-type ListItem = { id: number; code: string; name?: string; action: string; status: string };
+type ListItem = { id: number; code: string; name?: string; action: string; status: string; confidence?: number; score?: number | null };
 type Detail = Conclusion & { roles: Role[] };
 type Job = { id: number; code: string; status: string; decision_id: number | null };
 
@@ -63,7 +63,16 @@ export function DecisionsPage() {
       render: (_: string, r: ListItem) => <StockLink code={r.code} name={r.name} /> },
     { title: "动作", dataIndex: "action", key: "action",
       render: (a: string) => <Tag color={ACTION_COLOR[a] || "default"}>{a}</Tag> },
-    { title: "状态", dataIndex: "status", key: "status" },
+    { title: "复合分", dataIndex: "score", key: "score",
+      render: (v: number | null | undefined) => (v == null ? "—" : v.toFixed(2)) },
+    { title: "置信度", dataIndex: "confidence", key: "confidence",
+      render: (v: number | undefined) => (v == null ? "—" : `${Math.round(v * 100)}%`) },
+    { title: "状态", dataIndex: "status", key: "status",
+      render: (st: string) => {
+        const color = st === "APPROVED" ? "green" : st === "REJECTED" ? "red"
+          : st === "LOW_CONF" ? "default" : undefined;
+        return <Tag color={color}>{st}</Tag>;
+      } },
   ];
 
   return (
@@ -96,6 +105,7 @@ export function DecisionsPage() {
                   <b><StockLink code={r.code} name={r.name} /></b>
                   <Tag color={ACTION_COLOR[r.action] || "default"}>{r.action}</Tag>
                   <span>{r.status}</span>
+                  {r.score != null && <span>{r.score.toFixed(2)}</span>}
                 </Space></Card>
               )}
             />
