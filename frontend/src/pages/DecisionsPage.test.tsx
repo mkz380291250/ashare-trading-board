@@ -43,6 +43,7 @@ describe("DecisionsPage", () => {
     render(<DecisionsPage />)
     expect(await screen.findByText('LOW_CONF')).toBeTruthy()
     expect(await screen.findByText('0.95')).toBeTruthy()
+    expect(await screen.findByText(/置信 50%/)).toBeTruthy()
   })
 
   it("submitting a code calls /api/decisions/run", async () => {

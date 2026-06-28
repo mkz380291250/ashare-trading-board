@@ -14,6 +14,11 @@ type Job = { id: number; code: string; status: string; decision_id: number | nul
 
 const ACTION_COLOR: Record<string, string> = { BUY: "red", SELL: "green", HOLD: "default" };
 
+function statusTag(st: string) {
+  const color = st === "APPROVED" ? "green" : st === "REJECTED" ? "red" : st === "LOW_CONF" ? "default" : undefined;
+  return <Tag color={color}>{st}</Tag>;
+}
+
 export function DecisionsPage() {
   const [rows, setRows] = useState<ListItem[]>([]);
   const [sel, setSel] = useState<number | null>(null);
@@ -68,11 +73,7 @@ export function DecisionsPage() {
     { title: "置信度", dataIndex: "confidence", key: "confidence",
       render: (v: number | undefined) => (v == null ? "—" : `${Math.round(v * 100)}%`) },
     { title: "状态", dataIndex: "status", key: "status",
-      render: (st: string) => {
-        const color = st === "APPROVED" ? "green" : st === "REJECTED" ? "red"
-          : st === "LOW_CONF" ? "default" : undefined;
-        return <Tag color={color}>{st}</Tag>;
-      } },
+      render: (st: string) => statusTag(st) },
   ];
 
   return (
@@ -104,8 +105,9 @@ export function DecisionsPage() {
                 <Card size="small"><Space split="·">
                   <b><StockLink code={r.code} name={r.name} /></b>
                   <Tag color={ACTION_COLOR[r.action] || "default"}>{r.action}</Tag>
-                  <span>{r.status}</span>
+                  {statusTag(r.status)}
                   {r.score != null && <span>{r.score.toFixed(2)}</span>}
+                  {r.confidence != null && <span>置信 {Math.round(r.confidence * 100)}%</span>}
                 </Space></Card>
               )}
             />
