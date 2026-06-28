@@ -71,3 +71,15 @@ def test_backfill_idempotent():
     backfill_outcomes(s, store, date(2026, 6, 6))
     backfill_outcomes(s, store, date(2026, 6, 6))
     assert s.query(DecisionOutcome).count() == 1    # 不累积
+
+
+def test_hit_rate_excludes_future_outcomes():
+    s = _sess()
+    s.add(DecisionOutcome(decision_id=1, code="600519.SH", decided_on=date(2026, 6, 4),
+                          action="BUY", entry_close=100.0, ret_t5=0.05, hit=True,
+                          last_updated=date(2026, 6, 4)))
+    s.add(DecisionOutcome(decision_id=2, code="000001.SZ", decided_on=date(2026, 6, 20),
+                          action="BUY", entry_close=50.0, ret_t5=-0.05, hit=False,
+                          last_updated=date(2026, 6, 20)))  # 晚于 as_of,应被排除
+    s.commit()
+    assert hit_rate(s, window=30, as_of=date(2026, 6, 10)) == 1.0   # 只算 6/4 那条(命中)

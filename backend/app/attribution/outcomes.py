@@ -23,7 +23,7 @@ def compute_outcome(action: str, closes: list[float]) -> dict:
 
 
 def backfill_outcomes(session: Session, store, as_of: date, *,
-                      lookback_days: int = 15, account_id: int = 1) -> int:
+                      lookback_days: int = 15) -> int:
     start = as_of - timedelta(days=lookback_days)
     decisions = session.scalars(select(Decision).where(
         Decision.as_of >= start, Decision.as_of <= as_of,
@@ -57,6 +57,7 @@ def hit_rate(session: Session, *, window: int = 30, as_of: date) -> float | None
     start = as_of - timedelta(days=window)
     rows = session.scalars(select(DecisionOutcome).where(
         DecisionOutcome.decided_on >= start,
+        DecisionOutcome.decided_on <= as_of,
         DecisionOutcome.hit.is_not(None))).all()
     hits = [r.hit for r in rows]
     return (sum(1 for h in hits if h) / len(hits)) if hits else None
