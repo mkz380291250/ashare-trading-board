@@ -4,13 +4,8 @@
 def current_drawdown(totals: list[float]) -> float | None:
     if not totals:
         return None
-    peak = totals[0]
-    dd = 0.0
-    for t in totals:
-        peak = max(peak, t)
-        if peak:
-            dd = min(dd, t / peak - 1.0)
-    return dd
+    peak = max(totals)
+    return (totals[-1] / peak - 1.0) if peak else 0.0
 
 
 def rolling_hit_rate(hits: list[bool | None]) -> float | None:

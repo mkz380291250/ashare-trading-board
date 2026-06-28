@@ -6,7 +6,7 @@ from sqlalchemy.orm import sessionmaker
 from app.db.database import Base
 import app.db.models  # noqa
 from app.db.models import PolicyAction
-from app.policy.guardrails import record_action
+from app.policy.guardrails import record_action, already_recorded
 
 
 def _sess():
@@ -24,6 +24,16 @@ def test_record_action_persists_audit():
     assert row.kind == "RISK_OFF" and row.status == "AUTO"
     assert json.loads(row.trigger)["drawdown"] == -0.22
     assert row.weixin_sent is False
+
+
+def test_already_recorded():
+    from datetime import date
+    from app.policy.guardrails import already_recorded
+    s = _sess()
+    assert already_recorded(s, "REMINE", date(2026, 6, 28)) is False
+    record_action(s, "REMINE", date(2026, 6, 28), {}, "x")
+    assert already_recorded(s, "REMINE", date(2026, 6, 28)) is True
+    assert already_recorded(s, "RISK_OFF", date(2026, 6, 28)) is False
 
 
 # run_remine 用 monkeypatch 截 subprocess,不真起进程

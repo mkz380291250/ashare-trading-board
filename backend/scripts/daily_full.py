@@ -93,11 +93,19 @@ def step_debate() -> None:
         select(Position).where(Position.account_id == 1)).all()}
     held = set(holds)
     from app.policy.rules import is_risk_off, weak_holdings
-    off, _ = is_risk_off(session, as_of, dd_stop=s.dd_stop,
-                         hitrate_stop=s.hitrate_stop)
-    weak = set(weak_holdings(session, held, as_of, pctl=s.weak_pctl,
-                             consecutive=s.weak_consecutive))
+    from app.policy.guardrails import record_action, already_recorded
+    off, off_reason = is_risk_off(session, as_of, dd_stop=s.dd_stop,
+                                  hitrate_stop=s.hitrate_stop)
+    weak_list = weak_holdings(session, held, as_of, pctl=s.weak_pctl,
+                              consecutive=s.weak_consecutive)
+    weak = set(weak_list)
     target = len(held) if off else s.target_positions
+    if off and not already_recorded(session, "RISK_OFF", as_of):
+        record_action(session, "RISK_OFF", as_of, {"reason": off_reason},
+                      f"风控停买:{off_reason}")
+    if weak_list and not already_recorded(session, "WEAK_SELL", as_of):
+        record_action(session, "WEAK_SELL", as_of, {"codes": weak_list},
+                      f"持仓弱因子标卖候选:{weak_list}")
 
     def brief_builder(codes):
         start = date(as_of.year - 1, as_of.month, as_of.day)
@@ -142,34 +150,30 @@ def step_attribution() -> None:
 
 
 def step_policy() -> None:
-    from app.policy.rules import factor_decayed, is_risk_off, weak_holdings
-    from app.policy.guardrails import record_action
+    from app.policy.rules import factor_decayed
+    from app.policy.guardrails import record_action, already_recorded
     from app.policy.actions import run_remine
     s = get_settings()
     session = _session()
     store = QuoteStore(session)
     as_of = store.trading_dates(date.today(), 1)[0]
-    held = {p.code for p in session.scalars(
-        select(Position).where(Position.account_id == 1)).all()}
     notes = []
-    if factor_decayed(session, as_of, window=s.ic_decay_window,
-                      consecutive=s.ic_decay_consecutive, threshold=s.ic_decay_threshold):
+    if (factor_decayed(session, as_of, window=s.ic_decay_window,
+                       consecutive=s.ic_decay_consecutive, threshold=s.ic_decay_threshold)
+            and not already_recorded(session, "REMINE", as_of)):
         ric = latest_rolling_rank_ic(session, as_of=as_of, window=s.ic_decay_window)
-        record_action(session, "REMINE", as_of, {"rolling_rank_ic": ric},
-                      "因子前向IC衰减→自动重挖换产物(旧产物已归档 data/factors/archive/)")
-        notes.append("因子衰减→重挖")
         if s.policy_auto_remine:
             rc = run_remine()
-            notes.append(f"重挖完成 rc={rc}")
-    off, off_reason = is_risk_off(session, as_of, dd_stop=s.dd_stop, hitrate_stop=s.hitrate_stop)
-    if off:
-        record_action(session, "RISK_OFF", as_of, {"reason": off_reason}, f"风控停买:{off_reason}")
-        notes.append(f"停买({off_reason})")
-    weak = weak_holdings(session, held, as_of, pctl=s.weak_pctl, consecutive=s.weak_consecutive)
-    if weak:
-        record_action(session, "WEAK_SELL", as_of, {"codes": weak},
-                      f"持仓弱因子标卖候选:{weak}")
-        notes.append(f"弱持仓 {len(weak)} 只")
+            status = "AUTO" if rc == 0 else "FAILED"
+            detail = ("因子衰减→自动重挖换产物(旧产物已归档 data/factors/archive/)"
+                      if rc == 0 else f"因子衰减→重挖失败 rc={rc}")
+            record_action(session, "REMINE", as_of, {"rolling_rank_ic": ric, "rc": rc},
+                          detail, status=status)
+            notes.append(f"因子衰减→重挖 rc={rc}")
+        else:
+            record_action(session, "REMINE", as_of, {"rolling_rank_ic": ric},
+                          "因子衰减→待人工确认重挖", status="PENDING")
+            notes.append("因子衰减→待确认重挖")
     print(f"POLICY_DONE {as_of} " + ("; ".join(notes) if notes else "无动作"), flush=True)
 
 
