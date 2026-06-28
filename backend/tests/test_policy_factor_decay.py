@@ -42,3 +42,24 @@ def test_not_decayed_insufficient_history():
     _seed_ic(s, d0, [0.01, 0.01])        # 不足 consecutive
     assert factor_decayed(s, d0 + timedelta(days=1), window=3, consecutive=5,
                           threshold=0.02) is False
+
+
+def test_not_decayed_when_rolling_ic_none_insufficient_window():
+    s = _sess()
+    d0 = date(2026, 6, 1)
+    # Create rows with rank_ic=None so latest_rolling_rank_ic returns None
+    for i in range(5):
+        s.add(FactorICDaily(as_of=d0 + timedelta(days=i), ic=None, rank_ic=None, n=0))
+    s.commit()
+    # latest_rolling_rank_ic returns None → factor_decayed returns False
+    assert factor_decayed(s, d0 + timedelta(days=4), window=3, consecutive=5,
+                          threshold=0.02) is False
+
+
+def test_exact_threshold_not_decayed():
+    s = _sess()
+    d0 = date(2026, 6, 1)
+    _seed_ic(s, d0, [0.02] * 8)           # 恰好等于阈值
+    # 严格 < threshold:等于阈值不算衰减
+    assert factor_decayed(s, d0 + timedelta(days=7), window=3, consecutive=5,
+                          threshold=0.02) is False
