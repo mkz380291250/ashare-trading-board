@@ -23,4 +23,15 @@ describe('HealthPanel', () => {
     expect(await screen.findByText('当前回撤')).toBeTruthy()
     expect(await screen.findByText('今日策略动作')).toBeTruthy()
   })
+
+  it('shows — not NaN on empty data', async () => {
+    vi.stubGlobal('fetch', vi.fn((url: string) => {
+      const body = url.includes('hit-rate') ? { window: 30, hit_rate: null, n: 0 } : []
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(body) }) as any
+    }))
+    render(<MemoryRouter><HealthPanel accountId={1} /></MemoryRouter>)
+    expect(await screen.findByText('近30日胜率')).toBeTruthy()
+    expect(screen.queryByText('NaN')).toBeNull()
+    expect(screen.queryByText('NaN%')).toBeNull()
+  })
 })

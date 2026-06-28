@@ -17,9 +17,9 @@ export function AttributionPage() {
     <div>
       <h2>归因</h2>
       <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col xs={12}><Card><Statistic title="近30日胜率"
-          value={hr?.hit_rate != null ? hr.hit_rate * 100 : NaN}
-          precision={0} suffix="%" /></Card></Col>
+        <Col xs={12}><Card><Statistic title="近30日胜率" value={0}
+          formatter={() => (hr?.hit_rate != null ? `${(hr.hit_rate * 100).toFixed(0)}%` : "—")}
+          /></Card></Col>
         <Col xs={12}><Card><Statistic title="样本数" value={hr?.n ?? 0} /></Card></Col>
       </Row>
       <Card title="复合因子前向 IC / RankIC"><ForwardICChart points={ic} /></Card>

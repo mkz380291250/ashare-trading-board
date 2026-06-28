@@ -30,13 +30,13 @@ export function HealthPanel({ accountId }: { accountId: number }) {
   return (
     <Card title="闭环健康" style={{ marginBottom: 16 }}>
       <Row gutter={16}>
-        <Col xs={12} sm={6}><Statistic title="近30日胜率"
-          value={hr?.hit_rate != null ? hr.hit_rate * 100 : NaN} precision={0} suffix="%"
+        <Col xs={12} sm={6}><Statistic title="近30日胜率" value={0}
+          formatter={() => (hr?.hit_rate != null ? `${(hr.hit_rate * 100).toFixed(0)}%` : "—")}
           valueStyle={hrRed ? { color: "#cf1322" } : undefined} /></Col>
-        <Col xs={12} sm={6}><Statistic title="滚动RankIC"
-          value={ric != null ? ric : NaN} precision={4} /></Col>
-        <Col xs={12} sm={6}><Statistic title="当前回撤"
-          value={dd != null ? dd * 100 : NaN} precision={1} suffix="%"
+        <Col xs={12} sm={6}><Statistic title="滚动RankIC" value={0}
+          formatter={() => (ric != null ? ric.toFixed(4) : "—")} /></Col>
+        <Col xs={12} sm={6}><Statistic title="当前回撤" value={0}
+          formatter={() => (dd != null ? `${(dd * 100).toFixed(1)}%` : "—")}
           valueStyle={ddRed ? { color: "#cf1322" } : undefined} /></Col>
         <Col xs={12} sm={6}><Statistic title="今日策略动作" value={todayCount} /></Col>
       </Row>
