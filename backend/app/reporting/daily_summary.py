@@ -3,6 +3,8 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from app.db.models import Account, Position, Trade, EquitySnapshot
+from app.attribution.outcomes import hit_rate
+from app.attribution.forward_ic import latest_rolling_rank_ic
 
 
 def build_daily_summary(session: Session, as_of: date, account_id: int = 1) -> str:
@@ -34,4 +36,8 @@ def build_daily_summary(session: Session, as_of: date, account_id: int = 1) -> s
         lines.append(f"回撤 {dd*100:.1f}%")
     else:
         lines.append(f"现金 {acc.cash:.0f} / 权益快照 N/A / 回撤 N/A")
+    hr = hit_rate(session, window=30, as_of=as_of)
+    ric = latest_rolling_rank_ic(session, as_of=as_of, window=20)
+    lines.append(f"近30日胜率 {hr*100:.0f}%" if hr is not None else "近30日胜率 N/A")
+    lines.append(f"滚动RankIC {ric:+.4f}" if ric is not None else "滚动RankIC N/A")
     return "\n".join(lines)

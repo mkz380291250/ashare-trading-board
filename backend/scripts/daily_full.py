@@ -123,10 +123,20 @@ def step_mark() -> None:
     PaperBroker(session).mark_to_market(1, prices, as_of)
 
 
+def step_attribution() -> None:
+    from app.attribution.outcomes import backfill_outcomes
+    from app.attribution.forward_ic import backfill_factor_ic
+    session = _session()
+    store = QuoteStore(session)
+    as_of = store.trading_dates(date.today(), 1)[0]
+    backfill_outcomes(session, store, as_of)
+    backfill_factor_ic(session, store, as_of)
+
+
 def run_all() -> bool:
     ok = True
     for step in (step_quotes, step_qlib, step_tracklist,
-                 step_select, step_debate, step_mark):
+                 step_select, step_debate, step_mark, step_attribution):
         try:
             step()
         except Exception:                       # noqa: BLE001 — 单步失败不阻断
