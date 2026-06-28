@@ -229,3 +229,18 @@ class FactorICDaily(Base):
     ic: Mapped[float | None] = mapped_column(Float, nullable=True)
     rank_ic: Mapped[float | None] = mapped_column(Float, nullable=True)
     n: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class PolicyAction(Base):
+    __tablename__ = "policy_actions"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    kind: Mapped[str] = mapped_column(String(16))
+    as_of: Mapped[date] = mapped_column(Date)
+    trigger: Mapped[str] = mapped_column(String, default="{}")
+    detail: Mapped[str] = mapped_column(String, default="")
+    status: Mapped[str] = mapped_column(String(12), default="AUTO")
+    weixin_sent: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[date] = mapped_column(Date)
+
+
+Index("ix_policy_actions_as_of", PolicyAction.as_of)
