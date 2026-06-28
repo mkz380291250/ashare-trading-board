@@ -6,6 +6,7 @@ import { EquityChart } from "../components/EquityChart";
 import { TradeForm } from "../components/TradeForm";
 import { DiscoveryPanel } from "../components/DiscoveryPanel";
 import { DecisionsPanel } from "../components/DecisionsPanel";
+import { HealthPanel } from "../components/HealthPanel";
 
 type Account = { id: number; name: string; cash: number;
   positions: { code: string; shares: number; cost: number }[] };
@@ -33,6 +34,7 @@ export function Dashboard() {
       </Row>
       <Card title="下单(人机协同)"><TradeForm accountId={ACCOUNT_ID} onDone={load} /></Card>
       <Card title="持仓"><PositionsTable positions={acc.positions} /></Card>
+      <HealthPanel accountId={ACCOUNT_ID} />
       <Card title="净值曲线"><EquityChart points={eq} /></Card>
       <Card title="机会榜 Top-8"><DiscoveryPanel /></Card>
       <Card title="决策(人机协同)"><DecisionsPanel /></Card>

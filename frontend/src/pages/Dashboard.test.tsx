@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { MemoryRouter } from 'react-router-dom'
 import { Dashboard } from './Dashboard'
 
 beforeEach(() => {
@@ -13,7 +14,7 @@ beforeEach(() => {
 
 describe('Dashboard', () => {
   it('shows cash as a statistic', async () => {
-    render(<Dashboard />)
+    render(<MemoryRouter><Dashboard /></MemoryRouter>)
     await waitFor(() => expect(screen.getByText('现金')).toBeInTheDocument())
   })
 })
