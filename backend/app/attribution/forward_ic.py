@@ -3,7 +3,7 @@
 算 IC(Pearson)/RankIC(Spearman),一行一 as_of,按 as_of upsert,回填幂等。"""
 from datetime import date, timedelta
 import pandas as pd
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 from app.db.models import DiscoveryPick, FactorICDaily
 

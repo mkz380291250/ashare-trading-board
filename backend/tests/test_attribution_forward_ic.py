@@ -48,3 +48,17 @@ def test_backfill_factor_ic_writes_row():
     row = s.scalar(select(FactorICDaily).where(FactorICDaily.as_of == d0))
     assert row is not None and row.n == 2 and row.rank_ic is not None
     assert latest_rolling_rank_ic(s, as_of=date(2026, 6, 7), window=20) == row.rank_ic
+
+
+def test_daily_ic_degenerate_n_lt_2():
+    assert daily_ic([]) == (None, None, 0)
+    assert daily_ic([(1.0, 0.05)]) == (None, None, 1)
+
+
+def test_rolling_rank_ic_skips_none_rows():
+    s = _sess()
+    s.add(FactorICDaily(as_of=date(2026, 6, 3), ic=None, rank_ic=None, n=0))
+    s.add(FactorICDaily(as_of=date(2026, 6, 4), ic=0.02, rank_ic=0.08, n=100))
+    s.commit()
+    # 只有 6/4 有有效 rank_ic → 均值=0.08,None 行被忽略(不应除零)
+    assert latest_rolling_rank_ic(s, as_of=date(2026, 6, 4), window=20) == 0.08
