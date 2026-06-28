@@ -12,7 +12,7 @@ router = APIRouter(prefix="/api", tags=["attribution"])
 @router.get("/attribution/hit-rate")
 def get_hit_rate(window: int = 30, s: Session = Depends(get_session)):
     as_of = s.scalar(select(func.max(DecisionOutcome.decided_on))) or date_t.today()
-    start = as_of.fromordinal(as_of.toordinal() - window)
+    start = date_t.fromordinal(as_of.toordinal() - window)
     n = s.scalar(select(func.count()).select_from(DecisionOutcome).where(
         DecisionOutcome.decided_on >= start, DecisionOutcome.decided_on <= as_of,
         DecisionOutcome.hit.is_not(None))) or 0
