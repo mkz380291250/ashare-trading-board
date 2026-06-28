@@ -26,8 +26,8 @@ def test_summary_includes_hitrate_and_ic():
     s.add(FactorICDaily(as_of=date(2026, 6, 4), ic=0.02, rank_ic=0.07, n=4000))
     s.commit()
     text = build_daily_summary(s, d, account_id=1)
-    assert "胜率" in text
-    assert "RankIC" in text or "IC" in text
+    assert "近30日胜率 100%" in text
+    assert "滚动RankIC +0.0700" in text
 
 
 def test_summary_attribution_na_when_empty():
