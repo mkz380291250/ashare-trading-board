@@ -46,6 +46,21 @@ def test_not_risk_off_when_healthy():
     assert off is False
 
 
+def test_risk_off_drawdown_wins_over_hitrate():
+    s = _sess()
+    s.add(EquitySnapshot(account_id=1, as_of=date(2026, 6, 1), cash=0, market_value=0, total=100.0))
+    s.add(EquitySnapshot(account_id=1, as_of=date(2026, 6, 2), cash=0, market_value=0, total=75.0))  # -25%
+    for i in range(5):  # 胜率0%(也会触发),但回撤理由应优先
+        s.add(DecisionOutcome(decision_id=i + 1, code=f"C{i}.SH", decided_on=date(2026, 6, 1),
+                              action="BUY", entry_close=10.0, ret_t5=-0.05, hit=False,
+                              last_updated=date(2026, 6, 2)))
+    s.commit()
+    off, reason = is_risk_off(s, date(2026, 6, 2), dd_stop=0.20, hitrate_stop=0.40)
+    assert off is True
+    assert "回撤" in reason
+    assert "胜率" not in reason
+
+
 def _seed_pick(s, as_of, ranked_codes):
     total = len(ranked_codes)
     for rank, code in enumerate(ranked_codes, 1):

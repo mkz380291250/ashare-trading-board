@@ -3,8 +3,10 @@
 from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from app.db.models import FactorICDaily
+from app.db.models import FactorICDaily, EquitySnapshot, DiscoveryPick
 from app.attribution.forward_ic import latest_rolling_rank_ic
+from app.attribution.equity import current_drawdown
+from app.attribution.outcomes import hit_rate
 
 
 def factor_decayed(session: Session, as_of: date, *, window: int = 20,
@@ -19,11 +21,6 @@ def factor_decayed(session: Session, as_of: date, *, window: int = 20,
         if ric is None or ric >= threshold:
             return False
     return True
-
-
-from app.db.models import EquitySnapshot, DiscoveryPick
-from app.attribution.equity import current_drawdown
-from app.attribution.outcomes import hit_rate
 
 
 def is_risk_off(session: Session, as_of: date, *, account_id: int = 1,
