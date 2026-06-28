@@ -23,6 +23,7 @@ from app.decision.brief import build_brief
 from app.decision.llm import LocalClaudeClient, DeepSeekClient
 from app.decision.daily_pipeline import run_daily_decisions
 from app.reporting.daily_summary import build_daily_summary
+from app.attribution.forward_ic import latest_rolling_rank_ic
 
 PY = sys.executable
 
@@ -91,6 +92,12 @@ def step_debate() -> None:
     holds = {p.code: p for p in session.scalars(
         select(Position).where(Position.account_id == 1)).all()}
     held = set(holds)
+    from app.policy.rules import is_risk_off, weak_holdings
+    off, off_reason = is_risk_off(session, as_of, dd_stop=s.dd_stop,
+                                  hitrate_stop=s.hitrate_stop)
+    weak = set(weak_holdings(session, held, as_of, pctl=s.weak_pctl,
+                             consecutive=s.weak_consecutive))
+    target = len(held) if off else s.target_positions
 
     def brief_builder(codes):
         start = date(as_of.year - 1, as_of.month, as_of.day)
@@ -100,14 +107,15 @@ def step_debate() -> None:
             closes = [b.close for b in bars][-20:]
             h = holds.get(code)
             holding = {"shares": h.shares, "cost": h.cost} if h else None
-            out.append(build_brief(code, closes, {}, {}, holding))
+            factors = {"weak_factor": True} if code in weak else {}
+            out.append(build_brief(code, closes, factors, {}, holding))
         return out
 
     summary = run_daily_decisions(
         session, as_of, ranking, held, graph=DecisionGraph(_llm(s), rounds=s.debate_rounds),
         brief_builder=brief_builder, broker=PaperBroker(session),
         price_of=lambda c: latest_close(store, c, as_of),
-        target=s.target_positions, quality_pctl=s.quality_pctl,
+        target=target, quality_pctl=s.quality_pctl,
         min_confidence=s.min_confidence, max_debate=s.max_debate, account_id=1)
     print(build_daily_summary(session, as_of, account_id=1), flush=True)
     print(f"DEBATE_DONE {summary}", flush=True)
@@ -133,10 +141,42 @@ def step_attribution() -> None:
     backfill_factor_ic(session, store, as_of)
 
 
+def step_policy() -> None:
+    from app.policy.rules import factor_decayed, is_risk_off, weak_holdings
+    from app.policy.guardrails import record_action
+    from app.policy.actions import run_remine
+    s = get_settings()
+    session = _session()
+    store = QuoteStore(session)
+    as_of = store.trading_dates(date.today(), 1)[0]
+    held = {p.code for p in session.scalars(
+        select(Position).where(Position.account_id == 1)).all()}
+    notes = []
+    if factor_decayed(session, as_of, window=s.ic_decay_window,
+                      consecutive=s.ic_decay_consecutive, threshold=s.ic_decay_threshold):
+        ric = latest_rolling_rank_ic(session, as_of=as_of, window=s.ic_decay_window)
+        record_action(session, "REMINE", as_of, {"rolling_rank_ic": ric},
+                      "因子前向IC衰减→自动重挖换产物(旧产物已归档 data/factors/archive/)")
+        notes.append("因子衰减→重挖")
+        if s.policy_auto_remine:
+            rc = run_remine()
+            notes.append(f"重挖完成 rc={rc}")
+    off, off_reason = is_risk_off(session, as_of, dd_stop=s.dd_stop, hitrate_stop=s.hitrate_stop)
+    if off:
+        record_action(session, "RISK_OFF", as_of, {"reason": off_reason}, f"风控停买:{off_reason}")
+        notes.append(f"停买({off_reason})")
+    weak = weak_holdings(session, held, as_of, pctl=s.weak_pctl, consecutive=s.weak_consecutive)
+    if weak:
+        record_action(session, "WEAK_SELL", as_of, {"codes": weak},
+                      f"持仓弱因子标卖候选:{weak}")
+        notes.append(f"弱持仓 {len(weak)} 只")
+    print(f"POLICY_DONE {as_of} " + ("; ".join(notes) if notes else "无动作"), flush=True)
+
+
 def run_all() -> bool:
     ok = True
     for step in (step_quotes, step_qlib, step_tracklist,
-                 step_select, step_debate, step_mark, step_attribution):
+                 step_select, step_debate, step_mark, step_attribution, step_policy):
         try:
             step()
         except Exception:                       # noqa: BLE001 — 单步失败不阻断
