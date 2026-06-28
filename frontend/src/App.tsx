@@ -8,6 +8,8 @@ import { ResearchPage } from "./pages/ResearchPage";
 import { BacktestPage } from "./pages/BacktestPage";
 import { DecisionsPage } from "./pages/DecisionsPage";
 import { ChartPage } from "./pages/ChartPage";
+import { PolicyPage } from "./pages/PolicyPage";
+import { AttributionPage } from "./pages/AttributionPage";
 import { SideNav } from "./components/SideNav";
 import { BottomTabBar } from "./components/BottomTabBar";
 import { MoreDrawer } from "./components/MoreDrawer";
@@ -23,6 +25,8 @@ function AppRoutes() {
       <Route path="/research" element={<ResearchPage />} />
       <Route path="/backtest" element={<BacktestPage />} />
       <Route path="/chart/:code" element={<ChartPage />} />
+      <Route path="/policy" element={<PolicyPage />} />
+      <Route path="/attribution" element={<AttributionPage />} />
     </Routes>
   );
 }

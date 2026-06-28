@@ -2,7 +2,7 @@ import { Menu } from "antd";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   DashboardOutlined, FundOutlined, EyeOutlined, RobotOutlined,
-  FileTextOutlined, LineChartOutlined,
+  FileTextOutlined, LineChartOutlined, SafetyOutlined, FundProjectionScreenOutlined,
 } from "@ant-design/icons";
 
 export const NAV_PRIMARY = [
@@ -14,6 +14,8 @@ export const NAV_PRIMARY = [
 export const NAV_MORE = [
   { key: "/research", label: "研报", icon: <FileTextOutlined /> },
   { key: "/backtest", label: "回测", icon: <LineChartOutlined /> },
+  { key: "/policy", label: "策略闸", icon: <SafetyOutlined /> },
+  { key: "/attribution", label: "归因", icon: <FundProjectionScreenOutlined /> },
 ];
 export const NAV_ALL = [...NAV_PRIMARY, ...NAV_MORE];
 
