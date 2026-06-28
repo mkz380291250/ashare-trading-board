@@ -93,8 +93,8 @@ def step_debate() -> None:
         select(Position).where(Position.account_id == 1)).all()}
     held = set(holds)
     from app.policy.rules import is_risk_off, weak_holdings
-    off, off_reason = is_risk_off(session, as_of, dd_stop=s.dd_stop,
-                                  hitrate_stop=s.hitrate_stop)
+    off, _ = is_risk_off(session, as_of, dd_stop=s.dd_stop,
+                         hitrate_stop=s.hitrate_stop)
     weak = set(weak_holdings(session, held, as_of, pctl=s.weak_pctl,
                              consecutive=s.weak_consecutive))
     target = len(held) if off else s.target_positions
