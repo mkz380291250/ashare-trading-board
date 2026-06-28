@@ -41,5 +41,11 @@ def get_equity(account_id: int, s: Session = Depends(get_session)):
         select(EquitySnapshot).where(EquitySnapshot.account_id == account_id)
         .order_by(EquitySnapshot.as_of)
     ).all()
-    return [EquityPoint(as_of=r.as_of, cash=r.cash,
-                        market_value=r.market_value, total=r.total) for r in rows]
+    out = []
+    peak = None
+    for r in rows:
+        peak = r.total if peak is None else max(peak, r.total)
+        dd = (r.total / peak - 1.0) if peak else 0.0
+        out.append(EquityPoint(as_of=r.as_of, cash=r.cash, market_value=r.market_value,
+                               total=r.total, drawdown=dd))
+    return out

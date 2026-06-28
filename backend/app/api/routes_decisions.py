@@ -11,7 +11,7 @@ from app.api.deps import get_session
 from app.data.names import NameLookup
 from app.data.prices import latest_close
 from app.data.quote_store import QuoteStore
-from app.db.models import Decision, DecisionJob
+from app.db.models import Decision, DecisionJob, DiscoveryPick
 from app.decision.reasoning_parse import parse_reasoning
 from app.screener.tracklist_parser import normalize_code
 from app.trading.broker import PaperBroker, InsufficientFunds, InsufficientShares
@@ -59,11 +59,14 @@ def list_decisions(date: date_t | None = None, s: Session = Depends(get_session)
         return []
     rows = s.scalars(select(Decision).where(Decision.as_of == target)
                      .order_by(Decision.code)).all()
+    picks = {p.code: p.score for p in s.scalars(
+        select(DiscoveryPick).where(DiscoveryPick.as_of == target)).all()}
     names = NameLookup(s).map([r.code for r in rows])
     return [{"id": r.id, "as_of": r.as_of.isoformat(), "code": r.code,
              "name": names.get(r.code, ""),
              "action": r.action, "confidence": r.confidence, "shares": r.shares,
-             "status": r.status, "reasoning": r.reasoning} for r in rows]
+             "status": r.status, "reasoning": r.reasoning,
+             "score": picks.get(r.code)} for r in rows]
 
 
 @router.get("/decisions/{decision_id}")

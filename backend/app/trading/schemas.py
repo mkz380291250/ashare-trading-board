@@ -35,3 +35,4 @@ class EquityPoint(BaseModel):
     cash: float
     market_value: float
     total: float
+    drawdown: float = 0.0
