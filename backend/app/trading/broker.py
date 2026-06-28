@@ -1,5 +1,5 @@
 from datetime import date
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from sqlalchemy.orm import Session
 from app.db.models import Account, Position, Trade, EquitySnapshot
 from app.data.prices import PriceProvider
@@ -57,6 +57,8 @@ class PaperBroker:
             select(Position).where(Position.account_id == account_id)
         ).all()
         mv = sum(p.shares * prices.latest_close(p.code) for p in positions)
+        self.s.execute(delete(EquitySnapshot).where(
+            EquitySnapshot.account_id == account_id, EquitySnapshot.as_of == on))
         snap = EquitySnapshot(account_id=account_id, as_of=on, cash=acc.cash,
                               market_value=mv, total=acc.cash + mv)
         self.s.add(snap); self.s.commit()
