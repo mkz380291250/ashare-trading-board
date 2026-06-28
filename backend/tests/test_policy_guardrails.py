@@ -61,3 +61,21 @@ def test_run_remine_stops_on_mining_failure(monkeypatch):
     rc = actions.run_remine()
     assert rc == 1
     assert len(calls) == 1                        # freeze 不再执行
+
+
+def test_run_remine_returns_freeze_failure(monkeypatch):
+    from app.policy import actions
+    calls = []
+
+    class _R:
+        def __init__(self, rc): self.returncode = rc
+
+    def fake_run(cmd, **kw):
+        calls.append(cmd)
+        # mining 成功(0),freeze 失败(2)
+        return _R(0) if "run_factor_mining.py" in " ".join(map(str, cmd)) else _R(2)
+
+    monkeypatch.setattr(actions.subprocess, "run", fake_run)
+    rc = actions.run_remine()
+    assert rc == 2                          # 返回 freeze 的失败码
+    assert len(calls) == 2                  # mining + freeze 都跑了
