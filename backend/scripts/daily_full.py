@@ -178,14 +178,32 @@ def step_policy() -> None:
 
 
 def run_all() -> bool:
+    import json
+    from datetime import datetime
+    from app.db.models import SchedulerRun
+    steps = (("quotes", step_quotes), ("qlib", step_qlib), ("tracklist", step_tracklist),
+             ("select", step_select), ("debate", step_debate), ("mark", step_mark),
+             ("attribution", step_attribution), ("policy", step_policy))
+    session = _session()
+    run = SchedulerRun(as_of=date.today(), started_at=datetime.now(), ok=False, detail="[]")
+    session.add(run)
+    session.commit()
+    results = []
     ok = True
-    for step in (step_quotes, step_qlib, step_tracklist,
-                 step_select, step_debate, step_mark, step_attribution, step_policy):
+    for name, step in steps:
         try:
             step()
-        except Exception:                       # noqa: BLE001 — 单步失败不阻断
+            results.append({"step": name, "ok": True, "error": ""})
+        except Exception as exc:                # noqa: BLE001 — 单步失败不阻断
             ok = False
+            results.append({"step": name, "ok": False, "error": repr(exc)[:300]})
             traceback.print_exc()
+    run.finished_at = datetime.now()
+    run.ok = ok
+    run.detail = json.dumps(results, ensure_ascii=False)
+    session.commit()
+    print(f"RUN_DONE {run.as_of} ok={ok} " +
+          ("; ".join(r["step"] for r in results if not r["ok"]) or "全部成功"), flush=True)
     return ok
 
 

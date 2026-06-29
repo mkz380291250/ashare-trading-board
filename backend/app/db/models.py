@@ -244,3 +244,17 @@ class PolicyAction(Base):
 
 
 Index("ix_policy_actions_as_of", PolicyAction.as_of)
+
+
+class SchedulerRun(Base):
+    """每日 daily_full.run_all 一次运行的状态(供 UI 健康面板展示是否跑成/哪步挂了)。"""
+    __tablename__ = "scheduler_runs"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    as_of: Mapped[date] = mapped_column(Date)
+    started_at: Mapped[datetime] = mapped_column(DateTime)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    ok: Mapped[bool] = mapped_column(Boolean, default=False)
+    detail: Mapped[str] = mapped_column(String, default="[]")  # JSON:[{step,ok,error}]
+
+
+Index("ix_scheduler_runs_id", SchedulerRun.id)

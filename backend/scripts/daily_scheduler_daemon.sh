@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 本机守护进程:每个交易日(周一~周五)北京时间 17:30(=09:30 UTC)跑一次 daily_full.py。
+# 本机守护进程:每个交易日(周一~周五)北京时间 22:00(=14:00 UTC)跑一次 daily_full.py。
 # 不依赖后端常驻。用 setsid 脱离 harness 启动:
 #   setsid bash backend/scripts/daily_scheduler_daemon.sh >/tmp/ashare_sched.out 2>&1 &
 # 容器重启后需重新拉起(可由 heartbeat 兜底)。
@@ -15,7 +15,7 @@ echo "[$(date -u +%FT%TZ)] scheduler daemon started (pid $$), backend=$BACKEND" 
 
 while true; do
   now=$(date -u +%s)
-  target=$(date -u -d "today 09:30" +%s)   # 17:30 北京 = 09:30 UTC 同日
+  target=$(date -u -d "today 14:00" +%s)   # 22:00 北京 = 14:00 UTC 同日
   [ "$now" -ge "$target" ] && target=$((target + 86400))
   # 跳过周末:目标落在周六(6)或周日(7)则顺延到下一天
   while :; do

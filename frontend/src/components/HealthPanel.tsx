@@ -1,6 +1,6 @@
 // frontend/src/components/HealthPanel.tsx
 import { useEffect, useState } from "react";
-import { Card, Statistic, Row, Col } from "antd";
+import { Card, Statistic, Row, Col, Tag } from "antd";
 import { useNavigate } from "react-router-dom";
 import { apiGet } from "../api/client";
 
@@ -8,12 +8,17 @@ type HitRate = { window: number; hit_rate: number | null; n: number };
 type ICPoint = { rank_ic: number | null };
 type Action = { kind: string; as_of: string; detail: string };
 type Eq = { drawdown: number };
+type LastRun = {
+  as_of: string; started_at: string | null; finished_at: string | null;
+  ok: boolean; failed_steps: string[];
+};
 
 export function HealthPanel({ accountId }: { accountId: number }) {
   const [hr, setHr] = useState<HitRate | null>(null);
   const [ric, setRic] = useState<number | null>(null);
   const [dd, setDd] = useState<number | null>(null);
   const [actions, setActions] = useState<Action[]>([]);
+  const [lastRun, setLastRun] = useState<LastRun | null>(null);
   const nav = useNavigate();
   useEffect(() => {
     apiGet<HitRate>("/api/attribution/hit-rate?window=30").then(setHr).catch(() => {});
@@ -22,7 +27,10 @@ export function HealthPanel({ accountId }: { accountId: number }) {
     apiGet<Eq[]>(`/api/equity/${accountId}`)
       .then((e) => setDd(e.length ? e[e.length - 1].drawdown : null)).catch(() => {});
     apiGet<Action[]>("/api/policy/actions?limit=50").then(setActions).catch(() => {});
+    apiGet<LastRun | null>("/api/health/last-run")
+      .then((r) => setLastRun(r && !Array.isArray(r) ? r : null)).catch(() => {});
   }, [accountId]);
+  const runTime = (lastRun?.finished_at || lastRun?.started_at || "").replace("T", " ").slice(0, 16);
   const today = actions[0]?.as_of;
   const todayCount = actions.filter((a) => a.as_of === today).length;
   const ddRed = dd != null && dd < -0.2;
@@ -40,6 +48,16 @@ export function HealthPanel({ accountId }: { accountId: number }) {
           valueStyle={ddRed ? { color: "#cf1322" } : undefined} /></Col>
         <Col xs={12} sm={6}><Statistic title="今日策略动作" value={todayCount} /></Col>
       </Row>
+      <div style={{ marginTop: 8 }}>
+        上次自动运行:{lastRun ? (
+          <>
+            {runTime}{" "}
+            {lastRun.ok
+              ? <Tag color="green">成功</Tag>
+              : <Tag color="red">失败:{lastRun.failed_steps.join("、") || "未知"}</Tag>}
+          </>
+        ) : <span style={{ color: "#999" }}>尚未运行</span>}
+      </div>
       {actions[0] && (
         <div style={{ marginTop: 8, cursor: "pointer", color: "#1677ff" }}
           onClick={() => nav("/policy")}>

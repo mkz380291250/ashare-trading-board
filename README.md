@@ -1,12 +1,14 @@
 # A-Share Trading Board
 
-A-share market dashboard + paper-trading system. **Slice 0 + 1** delivers the
-monorepo scaffold, an A-share historical data pipeline (tushare → raw OHLCV +
-adj_factor), and a daily mark-to-market paper-trading account with a minimal
-React dashboard.
+A-share market dashboard + paper-trading system. Covers the full stack: A-share
+historical data pipeline (tushare → raw OHLCV + adj_factor), a daily
+mark-to-market paper-trading account with a React dashboard, a whole-market
+discovery engine, a multi-agent decision engine, research-sentiment signals,
+a qlib backtest/factor-analysis layer, and a **fully automated paper-trading
+closed loop**(因子选股 → AI 辩论 → 自动执行 → 归因 → 策略闸;见下方「全自动纸面闭环」).
 
-> Status: slices 2–4 (discovery engine, TradingAgents decisions, report analysis)
-> are out of scope here and built later.
+> Status: slices 0–5 built. The closed loop runs daily via a scheduler daemon
+> (北京时间 22:00) and is paper-only (virtual cash, no live trading).
 
 ## Architecture
 
@@ -225,27 +227,101 @@ with monotonic layered returns, strategy metrics vs 沪深300 produced.
   展示 T+1/3/5/10、至今涨跌、最大涨幅、最大回撤。
 - 接口:`POST /api/track`(body `{text}`)、`GET /api/track`、
   `DELETE /api/track/{code}/{added_on}`。
-- 手动跑全套更新(依次:全市场行情入库 → qlib 重建 → 跟踪表指标刷新):
+- 手动跑全套更新(`daily_full.py`,现为 8 步全链:全市场行情入库 → qlib 重建 →
+  跟踪表指标刷新 → 因子选候选 → AI 辩论决策+自动执行 → 盯市 → 归因 → 策略闸,详见
+  下方「全自动纸面闭环」):
 
   ```bash
   .venv/bin/python scripts/daily_full.py
   ```
 
-- 自动调度:后端进程内置 APScheduler,每天 16:00(北京时间 / Asia/Shanghai)触发
-  `daily_full`。默认关闭,需在 `.env` 中开启(需后端进程常驻):
+- 自动调度(线上实际方案):本机 bash 守护进程 `scripts/daily_scheduler_daemon.sh`,
+  每个交易日(周一~周五)**北京时间 22:00(= 09:30… 现为 14:00 UTC)** 跑一次
+  `daily_full.py`,不依赖后端常驻。用 `setsid` 脱离会话启动,容器重启后需重新拉起:
 
+  ```bash
+  setsid bash scripts/daily_scheduler_daemon.sh >/tmp/ashare_sched.out 2>&1 &
+  # pid 写在 /tmp/ashare_daily_sched.pid;日志 /tmp/ashare_daily_sched.log
   ```
-  ENABLE_SCHEDULER=true
-  # 可选,覆盖默认触发时间
-  DAILY_UPDATE_HOUR=16
-  DAILY_UPDATE_MINUTE=0
-  ```
+
+  > 改了触发时间后必须**杀旧守护进程重新拉起**(运行中的 bash 已把循环体读进内存,
+  > 不重启不生效)。
+
+- 进程看门狗:仓库根的 `HEARTBEAT.md` 配了一个任务,定期 `kill -0` 探活守护进程,
+  死了(或容器重启带走了)就自动重新 `setsid` 拉起。
+
+- 后端进程内 APScheduler(`app/scheduler.py`,`ENABLE_SCHEDULER=true` 开启)仍保留,
+  作为后端常驻时的备用触发;线上主用上面的 bash 守护进程。
+
+## 全自动纸面闭环 (closed loop)
+
+把原来的开环流水线(选股 → 人工看 → 人工审批下单)升级成**全自动纸面闭环**,每个
+交易日由调度守护进程一次跑完。链路:**qlib 因子选股 → AI 辩论决策 → 自动执行
+(PaperBroker)→ 前向归因 → 策略闸**。仍是纯纸面、虚拟资金,不接实盘。
+
+`scripts/daily_full.py::run_all` 顺序执行 8 步,单步失败不阻断整链:
+
+1. `step_quotes` — 全市场当日行情入库
+2. `step_qlib` — qlib 数据重建(CSV → dump_bin)
+3. `step_tracklist` — 跟踪表指标刷新
+4. `step_select` — 用**冻结因子集**对全市场打分,有界迭代选出进辩论的候选
+   (持仓必辩 + 按复合分填空位到目标仓位 15,质量门槛全市场前 30%,单日上限 32,不强买)
+5. `step_debate` — 多智能体辩论;BUY/SELL **置信度 ≥0.6 即自动纸面下单**,低于阈值标
+   `LOW_CONF` 不下单;风险态(risk-off)时只辩持仓、停止买入
+6. `step_mark` — 当日盯市(按 account_id + as_of 幂等)
+7. `step_attribution` — 写决策后向收益(T+1/3/5/10、以 T+5 定 hit)与每日因子 IC/RankIC
+8. `step_policy` — 阈值触发自动动作,全部过护栏审计(可审计 / 可回滚 / 留旧产物)
+
+### 选股:冻结因子集
+
+qlib 复合因子**完全替代**了原 MomentumProvider。定期重挖产出
+`data/factors/frozen_composite.json`(只存因子名、不存表达式),每日只按冻结集打分。
+
+```bash
+cd backend
+.venv/bin/python scripts/freeze_factors.py          # 重挖并冻结(产出 frozen_composite.json)
+.venv/bin/python scripts/run_discovery.py --source qlib   # 默认即 qlib,写全市场全量排名
+```
+
+### 归因度量层 (`app/attribution/`)
+
+无前向偏差(窗口未走完不写),作为策略闸的可信输入。两张表:
+`decision_outcomes`(决策后向收益 + hit)、`factor_ic_daily`(每日 IC/RankIC)。
+
+### 策略闸 (`app/policy/`) — 三个自动动作
+
+纯检测(`rules.py`)→ 统一过护栏(`guardrails.py`,审计落 `policy_actions` 表,幂等)
+→ 执行动作(`actions.py`)。默认阈值(实测可调,见 `app/config.py`):
+
+- **因子衰减**:20 日滚动 RankIC 连续 5 日 < 0.02 → **自动重挖换产物**(旧产物归档
+  `data/factors/archive/`,可回滚)
+- **风险熔断**:当前回撤 > 20% 或近 30 日胜率 < 40% → **自动停买**(下一日只辩持仓)
+- **弱持仓**:持仓复合分连续 3 日跌出全市场前 50% → **自动标卖**
+
+### 运行状态(看板可见,不发微信)
+
+`run_all` 每次把这次运行落 `scheduler_runs` 表(起止时间 / 成功失败 / 各步明细 JSON)。
+看板「闭环健康」卡片底部显示「上次自动运行:时间 + 成功 / 失败:哪一步」,失败标红。
+
+### 闭环相关接口
+
+- `GET /api/attribution/hit-rate?window=30` — 近窗命中率 + 样本数
+- `GET /api/attribution/forward-ic?days=60` — 每日 IC/RankIC 序列(喂折线图)
+- `GET /api/policy/actions?limit=50` — 策略动作审计(时间倒序)
+- `GET /api/health/last-run` — 最近一次自动运行状态(无运行返回 `null`)
+- `GET /api/equity/{id}` 每点带 `drawdown`;`GET /api/decisions` 带复合分/置信度
+
+前端对应:**策略闸** `/policy`、**归因** `/attribution` 两个新页(导航「更多」里),
+Dashboard 顶部「闭环健康」面板,净值图叠加回撤,决策页加复合分/置信度列。
 
 ## Running tests
 
 ```bash
 cd backend
-.venv/bin/python -m pytest -q     # 124 tests (board + screener + research + backtest)
+.venv/bin/python -m pytest -q     # 后端 ~319 tests(含闭环:归因/策略闸/调度状态)
+
+cd ../frontend
+npx vitest run                    # 前端 ~50 tests
 ```
 
 ## Key design constraints
