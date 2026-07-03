@@ -1,10 +1,12 @@
 """有界迭代选候选:持仓必辩,买入候选按复合分排名填空位,卡质量门与单日上限。
 不强迫交易——空仓合法,候选不够好就少辩甚至不买。"""
+from typing import Callable, Optional
 
 
 def select_debate_candidates(ranking: list[tuple[str, float]], held: set[str], *,
                              target: int, quality_pctl: float, max_debate: int,
-                             skip: set[str] = frozenset()) -> list[str]:
+                             skip: set[str] = frozenset(),
+                             buy_filter: Optional[Callable[[str], bool]] = None) -> list[str]:
     held = set(held)
     skip = set(skip)
     in_ranking = {c for c, _ in ranking}
@@ -23,6 +25,8 @@ def select_debate_candidates(ranking: list[tuple[str, float]], held: set[str], *
             break
         if code in held or code in skip:
             continue
+        if buy_filter is not None and not buy_filter(code):
+            continue                          # 趋势过滤:飞刀/破位票不作买入候选(不占空位)
         debate.append(code)
         slots -= 1
     # ③ 整体截断

@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from app.db.database import Base
 import app.db.models  # noqa
-from app.db.models import Account, EquitySnapshot, DecisionOutcome, DiscoveryPick
+from app.db.models import Account, Decision, EquitySnapshot, DecisionOutcome, DiscoveryPick
 from app.policy.rules import is_risk_off, weak_holdings
 
 
@@ -31,6 +31,9 @@ def test_risk_off_on_low_hitrate():
     s = _sess()
     s.add(EquitySnapshot(account_id=1, as_of=date(2026, 6, 2), cash=0, market_value=0, total=100.0))
     for i in range(5):  # 5 条 outcome,全未命中 → 胜率 0
+        s.add(Decision(id=i + 1, as_of=date(2026, 6, 1), code=f"C{i}.SH", action="BUY",
+                       confidence=0.8, shares=100, reasoning="", status="APPROVED",
+                       created_at=date(2026, 6, 1)))
         s.add(DecisionOutcome(decision_id=i + 1, code=f"C{i}.SH", decided_on=date(2026, 6, 1),
                               action="BUY", entry_close=10.0, ret_t5=-0.05, hit=False,
                               last_updated=date(2026, 6, 2)))
@@ -51,6 +54,9 @@ def test_risk_off_drawdown_wins_over_hitrate():
     s.add(EquitySnapshot(account_id=1, as_of=date(2026, 6, 1), cash=0, market_value=0, total=100.0))
     s.add(EquitySnapshot(account_id=1, as_of=date(2026, 6, 2), cash=0, market_value=0, total=75.0))  # -25%
     for i in range(5):  # 胜率0%(也会触发),但回撤理由应优先
+        s.add(Decision(id=i + 1, as_of=date(2026, 6, 1), code=f"C{i}.SH", action="BUY",
+                       confidence=0.8, shares=100, reasoning="", status="APPROVED",
+                       created_at=date(2026, 6, 1)))
         s.add(DecisionOutcome(decision_id=i + 1, code=f"C{i}.SH", decided_on=date(2026, 6, 1),
                               action="BUY", entry_close=10.0, ret_t5=-0.05, hit=False,
                               last_updated=date(2026, 6, 2)))

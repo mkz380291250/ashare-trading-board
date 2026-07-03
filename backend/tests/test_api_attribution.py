@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from app.db.database import Base
 import app.db.models  # noqa
-from app.db.models import DecisionOutcome, FactorICDaily
+from app.db.models import Decision, DecisionOutcome, FactorICDaily
 from app.main import create_app
 from app.api.deps import get_session
 
@@ -15,6 +15,12 @@ def _client():
                            connect_args={"check_same_thread": False}, poolclass=StaticPool)
     Base.metadata.create_all(engine)
     s = sessionmaker(bind=engine, expire_on_commit=False, future=True)()
+    s.add(Decision(id=1, as_of=date(2026, 6, 4), code="600519.SH", action="BUY",
+                   confidence=0.8, shares=100, reasoning="", status="APPROVED",
+                   created_at=date(2026, 6, 4)))
+    s.add(Decision(id=2, as_of=date(2026, 6, 4), code="000001.SZ", action="BUY",
+                   confidence=0.8, shares=100, reasoning="", status="APPROVED",
+                   created_at=date(2026, 6, 4)))
     s.add(DecisionOutcome(decision_id=1, code="600519.SH", decided_on=date(2026, 6, 4),
                           action="BUY", entry_close=100.0, ret_t5=0.05, hit=True,
                           last_updated=date(2026, 6, 12)))

@@ -29,14 +29,17 @@ class LocalClaudeClient(LLMClient):
     """Headless local Claude via `claude -p`."""
 
     def __init__(self, bin_path: str = "/usr/local/bin/claude",
+                 model: str = "claude-sonnet-5",
                  timeout: int = 300, run=subprocess.run):
         self.bin = bin_path
+        self.model = model
         self.timeout = timeout
         self._run = run
 
     def complete(self, prompt: str, system: str | None = None) -> str:
         full = prompt if not system else f"{system}\n\n{prompt}"
-        r = self._run([self.bin, "-p", full, "--output-format", "text"],
+        r = self._run([self.bin, "-p", full, "--model", self.model,
+                       "--output-format", "text"],
                       capture_output=True, text=True, timeout=self.timeout)
         return (r.stdout or "").strip()
 

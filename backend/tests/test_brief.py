@@ -45,3 +45,27 @@ def test_brief_renders_financials_section():
 
 def test_brief_financials_absent_says_no():
     assert "财报数据: 无" in build_brief("X", [10.0], {}, {}, holding=None).to_prompt()
+
+
+def test_brief_renders_strategy_thesis_when_present():
+    b = build_brief("X", [10.0, 9.0, 8.0], {}, {}, holding=None,
+                    strategy="短周期反转:超跌反弹候选,评估反弹胜算")
+    p = b.to_prompt()
+    assert "选股逻辑" in p and "短周期反转" in p and "反弹胜算" in p
+
+
+def test_brief_strategy_absent_omits_line():
+    p = build_brief("X", [10.0], {}, {}, holding=None).to_prompt()
+    assert "选股逻辑" not in p
+
+
+def test_brief_renders_volume_series():
+    b = build_brief("X", [10.0, 9.5, 9.0], {}, {}, holding=None,
+                    recent_volumes=[10000.0, 8000.0, 3000.0])
+    p = b.to_prompt()
+    assert "近期成交量序列" in p and "3000" in p
+
+
+def test_brief_volumes_absent_says_missing():
+    p = build_brief("X", [10.0], {}, {}, holding=None).to_prompt()
+    assert "近期成交量序列: 无" in p

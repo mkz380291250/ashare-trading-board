@@ -107,24 +107,49 @@ def step_debate() -> None:
         record_action(session, "WEAK_SELL", as_of, {"codes": weak_list},
                       f"持仓弱因子标卖候选:{weak_list}")
 
+    def _reversal_thesis(closes):
+        if len(closes) < 5:
+            return None
+        last, ma = closes[-1], sum(closes) / len(closes)
+        hi = max(closes)
+        below = (1 - last / ma) * 100 if ma else 0.0
+        dd = (1 - last / hi) * 100 if hi else 0.0
+        return (f"短周期反转(超跌反弹)因子选出:现价{last}低于均线约{below:.0f}%、"
+                f"近期自高点回撤约{dd:.0f}%。下跌本身是入选理由,请评估反弹胜算"
+                f"(缩量止跌/跌速衰竭/企稳),而非要求已处上涨趋势。")
+
     def brief_builder(codes):
         start = date(as_of.year - 1, as_of.month, as_of.day)
         out = []
         for code in codes:
             bars = store.get_bars(code, start, as_of)
             closes = [b.close for b in bars][-20:]
+            volumes = [b.volume for b in bars][-20:]
             h = holds.get(code)
             holding = {"shares": h.shares, "cost": h.cost} if h else None
             factors = {"weak_factor": True} if code in weak else {}
-            out.append(build_brief(code, closes, factors, {}, holding))
+            # 反转策略视角只挂给买入候选(非持仓);持仓的去留另有逻辑
+            strategy = None if h else _reversal_thesis(closes)
+            out.append(build_brief(code, closes, factors, {}, holding,
+                                   strategy=strategy, recent_volumes=volumes))
         return out
+
+    from app.decision.trend import is_uptrend
+    _trend_start = date(as_of.year - 1, as_of.month, as_of.day)
+
+    def buy_filter(code):
+        if s.buy_trend_window <= 0:
+            return True
+        closes = [b.close for b in store.get_bars(code, _trend_start, as_of)]
+        return is_uptrend(closes, window=s.buy_trend_window, tol=s.buy_trend_tol)
 
     summary = run_daily_decisions(
         session, as_of, ranking, held, graph=DecisionGraph(_llm(s), rounds=s.debate_rounds),
         brief_builder=brief_builder, broker=PaperBroker(session),
         price_of=lambda c: latest_close(store, c, as_of),
         target=target, quality_pctl=s.quality_pctl,
-        min_confidence=s.min_confidence, max_debate=s.max_debate, account_id=1)
+        min_confidence=s.min_confidence, max_debate=s.max_debate, account_id=1,
+        buy_filter=buy_filter)
     print(build_daily_summary(session, as_of, account_id=1), flush=True)
     print(f"DEBATE_DONE {summary}", flush=True)
 

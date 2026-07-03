@@ -75,6 +75,12 @@ def test_backfill_idempotent():
 
 def test_hit_rate_excludes_future_outcomes():
     s = _sess()
+    s.add(Decision(id=1, as_of=date(2026, 6, 4), code="600519.SH", action="BUY",
+                   confidence=0.8, shares=100, reasoning="", status="APPROVED",
+                   created_at=date(2026, 6, 4)))
+    s.add(Decision(id=2, as_of=date(2026, 6, 20), code="000001.SZ", action="BUY",
+                   confidence=0.8, shares=100, reasoning="", status="APPROVED",
+                   created_at=date(2026, 6, 20)))
     s.add(DecisionOutcome(decision_id=1, code="600519.SH", decided_on=date(2026, 6, 4),
                           action="BUY", entry_close=100.0, ret_t5=0.05, hit=True,
                           last_updated=date(2026, 6, 4)))
@@ -83,3 +89,33 @@ def test_hit_rate_excludes_future_outcomes():
                           last_updated=date(2026, 6, 20)))  # 晚于 as_of,应被排除
     s.commit()
     assert hit_rate(s, window=30, as_of=date(2026, 6, 10)) == 1.0   # 只算 6/4 那条(命中)
+
+
+def test_backfill_includes_low_conf():
+    # LOW_CONF(想买没买)也要跟踪后向收益,否则无法验证置信度门是否错杀
+    s = _sess()
+    d0 = date(2026, 6, 1)
+    _seed_quotes(s, "603619.SH", d0, [100, 101, 102, 103, 104, 105])
+    s.add(Decision(as_of=d0, code="603619.SH", action="BUY", confidence=0.5,
+                   shares=300, reasoning="", status="LOW_CONF", created_at=d0))
+    s.commit()
+    n = backfill_outcomes(s, QuoteStore(s), date(2026, 6, 6), lookback_days=15)
+    assert n == 1
+    row = s.scalar(select(DecisionOutcome))
+    assert row.code == "603619.SH" and row.hit is True
+
+
+def test_hit_rate_counts_only_approved():
+    # 风控停买的胜率口径只看已执行(APPROVED),LOW_CONF 不掺入
+    s = _sess()
+    d0 = date(2026, 6, 1)
+    _seed_quotes(s, "600519.SH", d0, [100, 101, 102, 103, 104, 105])   # 涨:hit
+    _seed_quotes(s, "603619.SH", d0, [100, 99, 98, 97, 96, 95])        # 跌:BUY miss
+    s.add(Decision(as_of=d0, code="600519.SH", action="BUY", confidence=0.8,
+                   shares=100, reasoning="", status="APPROVED", created_at=d0))
+    s.add(Decision(as_of=d0, code="603619.SH", action="BUY", confidence=0.5,
+                   shares=300, reasoning="", status="LOW_CONF", created_at=d0))
+    s.commit()
+    backfill_outcomes(s, QuoteStore(s), date(2026, 6, 6), lookback_days=15)
+    assert s.query(DecisionOutcome).count() == 2          # 两条都被跟踪
+    assert hit_rate(s, window=30, as_of=date(2026, 6, 6)) == 1.0  # 但胜率只算 APPROVED

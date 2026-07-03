@@ -19,6 +19,31 @@ def test_local_claude_invokes_binary_and_returns_stdout():
     assert "be brief" in calls["cmd"][calls["cmd"].index("-p") + 1]
 
 
+def test_local_claude_defaults_to_sonnet_5():
+    calls = {}
+
+    def fake_run(cmd, **kw):
+        calls["cmd"] = cmd
+        return _Proc("HELLO\n")
+
+    c = LocalClaudeClient(bin_path="/x/claude", run=fake_run)
+    c.complete("hi")
+    assert "--model" in calls["cmd"]
+    assert calls["cmd"][calls["cmd"].index("--model") + 1] == "claude-sonnet-5"
+
+
+def test_local_claude_model_overridable():
+    calls = {}
+
+    def fake_run(cmd, **kw):
+        calls["cmd"] = cmd
+        return _Proc("HELLO\n")
+
+    c = LocalClaudeClient(bin_path="/x/claude", model="claude-haiku-4-5-20251001", run=fake_run)
+    c.complete("hi")
+    assert calls["cmd"][calls["cmd"].index("--model") + 1] == "claude-haiku-4-5-20251001"
+
+
 class _Resp:
     def __init__(self, content): self._c = content
     def json(self): return {"choices": [{"message": {"content": self._c}}]}

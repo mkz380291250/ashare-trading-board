@@ -46,3 +46,31 @@ def test_held_not_in_ranking_still_debated():
     out = select_debate_candidates(r, held={"DELISTED.SH"}, target=1, quality_pctl=0.30,
                                    max_debate=32)
     assert "DELISTED.SH" in out               # 持仓不在排名里也要辩(可能要卖)
+
+
+def test_buy_filter_excludes_downtrend_candidates():
+    r = _ranking(100)
+    # c0,c2 处于下跌(飞刀)→不作买入候选;c1,c3 可买
+    ok = lambda code: code not in {"c0", "c2"}
+    out = select_debate_candidates(r, held=set(), target=3, quality_pctl=0.30,
+                                   max_debate=32, buy_filter=ok)
+    # 空位=3,买入候选跳过 c0/c2,取 c1,c3,c4
+    assert out == ["c1", "c3", "c4"]
+
+
+def test_buy_filter_does_not_block_held_debate():
+    r = _ranking(100)
+    # 即使持仓 c50 未通过趋势过滤,仍必辩(为了能卖出)
+    ok = lambda code: code not in {"c50", "c0"}
+    out = select_debate_candidates(r, held={"c50"}, target=3, quality_pctl=0.30,
+                                   max_debate=32, buy_filter=ok)
+    assert "c50" in out                       # 持仓照辩
+    assert "c0" not in out                    # 下跌买入候选被过滤
+    assert set(out) == {"c50", "c1", "c2"}    # 空位2个 → c1,c2
+
+
+def test_buy_filter_none_is_noop():
+    r = _ranking(100)
+    out = select_debate_candidates(r, held=set(), target=3, quality_pctl=0.30,
+                                   max_debate=32, buy_filter=None)
+    assert out == ["c0", "c1", "c2"]          # 不传过滤器 → 行为不变

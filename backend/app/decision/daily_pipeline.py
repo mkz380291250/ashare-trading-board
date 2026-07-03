@@ -24,14 +24,15 @@ def run_daily_decisions(session: Session, as_of: date,
                         brief_builder: Callable[[list[str]], list[StockBrief]],
                         broker: Optional[PaperBroker], price_of: Callable[[str], float], target: int,
                         quality_pctl: float, min_confidence: float, max_debate: int,
-                        account_id: int = 1) -> dict:
+                        account_id: int = 1,
+                        buy_filter: Optional[Callable[[str], bool]] = None) -> dict:
     skip = today_decided_codes(session, as_of)
     # Pass held_codes | skip as effective held so already-decided codes count
     # against the target slot budget, preventing idempotency violations.
     effective_held = set(held_codes) | skip
     candidates = select_debate_candidates(
         ranking, effective_held, target=target, quality_pctl=quality_pctl,
-        max_debate=max_debate, skip=skip)
+        max_debate=max_debate, skip=skip, buy_filter=buy_filter)
     briefs = brief_builder(candidates)
     runner = DecisionRunner(session, graph, broker=broker, account_id=account_id,
                             price_of=price_of, min_confidence=min_confidence)

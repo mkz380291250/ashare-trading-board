@@ -22,7 +22,12 @@ class Settings(BaseSettings):
     target_positions: int = 15             # 组合目标持仓数(空位上界)
     quality_pctl: float = 0.30             # 买入候选须在全市场复合分前 30%
     min_confidence: float = 0.6            # BUY/SELL 自动执行的置信度门
-    max_debate: int = 32                   # 单日辩论上限(防烧 LLM)
+    max_debate: int = 8                    # 单日辩论上限(防烧 LLM;本地 claude CLI 每只耗时较长,控制在8只内)
+    buy_trend_window: int = 0              # 买入趋势闸:均线窗口(0=关闭)。默认关——
+                                           # 当前 frozen 因子是短周期反转型(专挑超跌),
+                                           # 开趋势闸=过滤掉因子全部选票→零买入。仅当换成
+                                           # 趋势型因子时才设 20 开启。
+    buy_trend_tol: float = 0.02            # 收盘可低于均线的容差(2% 内仍算不破位)
     policy_auto_remine: bool = True        # 因子衰减时自动重挖换产物
     ic_decay_window: int = 20              # 滚动 RankIC 窗口
     ic_decay_consecutive: int = 5          # 连续低于阈值天数

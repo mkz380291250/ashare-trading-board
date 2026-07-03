@@ -27,8 +27,8 @@ while true; do
   echo "[$(date -u +%FT%TZ)] sleeping ${sleep_s}s until $(date -u -d @$target +%FT%TZ)" >> "$LOG"
   sleep "$sleep_s"
 
-  echo "[$(date -u +%FT%TZ)] RUN daily_full.py" >> "$LOG"
-  cd "$BACKEND" && "$PY" scripts/daily_full.py >> "$LOG" 2>&1
+  echo "[$(date -u +%FT%TZ)] RUN daily_full.py (nice 15,避免辩论期本地 claude CLI 抢占网页服务的 CPU)" >> "$LOG"
+  cd "$BACKEND" && nice -n 15 "$PY" scripts/daily_full.py >> "$LOG" 2>&1
   echo "[$(date -u +%FT%TZ)] daily_full.py exit=$?" >> "$LOG"
   sleep 60   # 防止同一分钟内重复触发
 done
