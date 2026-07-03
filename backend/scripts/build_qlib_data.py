@@ -8,8 +8,7 @@ from sqlalchemy import distinct, select
 from app.config import get_settings
 from app.db.database import make_engine, make_session_factory
 from app.db.models import DailyQuote
-from app.data.quote_store import QuoteStore
-from app.backtest.qlib_data import (export_market_csvs, export_csi300_csv, build_bin)
+from app.backtest.qlib_data import (export_market_csvs_full, export_csi300_csv, build_bin)
 
 
 def main():
@@ -21,14 +20,13 @@ def main():
 
     s = get_settings()
     session = make_session_factory(make_engine())()
-    store = QuoteStore(session)
     dates = sorted(session.scalars(select(distinct(DailyQuote.trade_date))).all())
     start, end = dates[0], dates[-1]
     codes = sorted({c for c in session.scalars(select(distinct(DailyQuote.code))).all()})
     if args.limit:
         codes = codes[: args.limit]
     print(f"exporting {len(codes)} stocks {start}..{end}", flush=True)
-    n = export_market_csvs(store, codes, start, end, args.csv_dir)
+    n = export_market_csvs_full(session, codes, start, end, args.csv_dir)
     import tushare as ts
     pro = ts.pro_api(s.tushare_token)
     csi = export_csi300_csv(pro, start, end, args.csv_dir)

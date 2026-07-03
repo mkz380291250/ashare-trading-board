@@ -1,4 +1,5 @@
 from pathlib import Path
+from sqlalchemy import select
 from app.data.qlib_store import bars_to_dataframe
 from app.backtest.symbols import to_qlib_symbol
 
@@ -25,6 +26,41 @@ def export_market_csvs(store, codes, start, end, out_dir: str) -> int:
         bars = store.get_bars(code, start, end)
         if export_bars_csv(bars, out_dir) is not None:
             n += 1
+    return n
+
+
+_FULL_COLS = ["date", "open", "high", "low", "close", "volume", "factor",
+              "turnover_rate", "volume_ratio", "circ_mv", "total_mv",
+              "pe", "pb", "amount"]
+
+
+def export_market_csvs_full(session, codes, start, end, out_dir: str) -> int:
+    """全字段导出:直接查 DailyQuote(含换手/估值/市值/成交额,不复权),
+    每只票一个 qlib 符号命名的 CSV。返回成功写出的只数。"""
+    import pandas as pd
+    from app.db.models import DailyQuote
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    n = 0
+    for code in codes:
+        rows = session.scalars(
+            select(DailyQuote).where(
+                DailyQuote.code == code,
+                DailyQuote.trade_date >= start,
+                DailyQuote.trade_date <= end,
+            ).order_by(DailyQuote.trade_date)).all()
+        if not rows:
+            continue
+        df = pd.DataFrame([{
+            "date": r.trade_date, "open": r.open, "high": r.high,
+            "low": r.low, "close": r.close, "volume": r.vol,
+            "factor": r.adj_factor, "turnover_rate": r.turnover_rate,
+            "volume_ratio": r.volume_ratio, "circ_mv": r.circ_mv,
+            "total_mv": r.total_mv, "pe": r.pe, "pb": r.pb,
+            "amount": r.amount,
+        } for r in rows], columns=_FULL_COLS)
+        df.to_csv(out / f"{to_qlib_symbol(code)}.csv", index=False)
+        n += 1
     return n
 
 
