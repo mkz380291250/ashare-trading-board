@@ -50,8 +50,12 @@ def main():
     p.add_argument("--horizon", type=int, default=5)
     p.add_argument("--bt-start", default="2025-01-01")  # OOS 窗口
     p.add_argument("--corr-threshold", type=float, default=0.8)
-    p.add_argument("--topk", type=int, default=50)
-    p.add_argument("--n-drop", type=int, default=5)
+    p.add_argument("--topk", type=int, default=15)       # 适中集中:10-20 只
+    p.add_argument("--n-drop", type=int, default=1)       # 周频下每周最多换 1 只 ≈ 2 笔/周
+    p.add_argument("--rebalance", choices=["day", "week"], default="week")
+    p.add_argument("--hold-thresh", type=int, default=1)
+    p.add_argument("--report", default="",
+                   help="显式指定 factor_mining_*.json 路径;缺省取目录最新")
     p.add_argument("--smoke", action="store_true")
     p.add_argument("--no-save", action="store_true")
     args = p.parse_args()
@@ -61,7 +65,10 @@ def main():
     from qlib.data import D
 
     reports_dir = Path(s.qlib_data_dir).resolve().parent / "reports"
-    mining = _latest_mining_report(reports_dir)
+    if args.report:
+        mining = json.loads(Path(args.report).read_text())
+    else:
+        mining = _latest_mining_report(reports_dir)
     robust = mining["robust_factors"]  # 已按 |IR| 降序
     ranked_names = [r["name"] for r in robust]
     signs = {r["name"]: sign_correct(r["rank_ic_oos"]) for r in robust}
@@ -100,11 +107,16 @@ def main():
     bt_start_d = datetime.strptime(bt_start, "%Y-%m-%d").date()
     bt_end = _clamp_end(end.date())
     bt_cost = run_strategy_backtest(score, start=bt_start_d, end=bt_end,
-                                    topk=args.topk, n_drop=args.n_drop, cost=DEFAULT_COST)
+                                    topk=args.topk, n_drop=args.n_drop, cost=DEFAULT_COST,
+                                    rebalance=args.rebalance, hold_thresh=args.hold_thresh)
     bt_free = run_strategy_backtest(score, start=bt_start_d, end=bt_end,
-                                    topk=args.topk, n_drop=args.n_drop, cost=NO_COST)
+                                    topk=args.topk, n_drop=args.n_drop, cost=NO_COST,
+                                    rebalance=args.rebalance, hold_thresh=args.hold_thresh)
     print(f"扣成本 : 年化 {bt_cost['annualized_return']} / IR {bt_cost['information_ratio']} "
           f"/ 回撤 {bt_cost['max_drawdown']} / 累计 {bt_cost['cum_return']:.4f}", flush=True)
+    print(f"换手   : {bt_cost.get('trades_per_week')} 笔/周 "
+          f"(共 {bt_cost.get('trades_total')} 笔 / {bt_cost.get('weeks')} 周, "
+          f"周换手率 {bt_cost.get('turnover_weekly_mean')})", flush=True)
     print(f"不扣成本: 年化 {bt_free['annualized_return']} / 累计 {bt_free['cum_return']:.4f}",
           flush=True)
     drag = ((bt_free['cum_return'] - bt_cost['cum_return']))
@@ -116,6 +128,7 @@ def main():
         "n_robust_in": len(ranked_names), "kept_factors": kept,
         "signs": {k: signs[k] for k in kept},
         "corr_threshold": args.corr_threshold, "topk": args.topk, "n_drop": args.n_drop,
+        "rebalance": args.rebalance, "hold_thresh": args.hold_thresh,
         "composite_factor_report": rep,
         "backtest_with_cost": bt_cost, "backtest_no_cost": bt_free,
         "cost_drag_cum": drag,
@@ -153,9 +166,11 @@ def _md(r: dict) -> str:
          f"- RankIC {r['composite_factor_report']['rank_ic_mean']:+.4f} / "
          f"IR {r['composite_factor_report']['rank_ic_ir']:+.2f}", "",
          "## 回测(TopkDropout, "
-         f"topk={r['topk']} n_drop={r['n_drop']})",
+         f"topk={r['topk']} n_drop={r['n_drop']} 调仓={r.get('rebalance', 'day')}频)",
          f"- 扣成本:年化 {bc['annualized_return']} / IR {bc['information_ratio']} / "
          f"回撤 {bc['max_drawdown']} / 累计 {bc['cum_return']:+.4f}",
+         f"- 换手:{bc.get('trades_per_week')} 笔/周(共 {bc.get('trades_total')} 笔 / "
+         f"{bc.get('weeks')} 周,周换手率 {bc.get('turnover_weekly_mean')})",
          f"- 不扣成本:年化 {bf['annualized_return']} / 累计 {bf['cum_return']:+.4f}",
          f"- 成本拖累(累计):{r['cost_drag_cum']:+.4f}", "",
          f"> {r['caveat']}"]
