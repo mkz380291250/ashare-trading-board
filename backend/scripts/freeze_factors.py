@@ -27,11 +27,16 @@ def _latest_mining(reports_dir: Path) -> dict:
     return json.loads(Path(files[-1]).read_text())
 
 
-def freeze(settings, *, universe="investable", horizon=5, threshold=0.8) -> FrozenFactors:
+def freeze(settings, *, universe=None, horizon=5, threshold=0.8,
+           report_path=None) -> FrozenFactors:
+    universe = universe or settings.discovery_universe
     init_qlib(settings.qlib_data_dir)
     from qlib.data import D
     reports_dir = Path(settings.qlib_data_dir).resolve().parent / "reports"
-    mining = _latest_mining(reports_dir)
+    if report_path:
+        mining = json.loads(Path(report_path).read_text())
+    else:
+        mining = _latest_mining(reports_dir)
     robust = mining["robust_factors"]                  # 已按 |IR| 降序
     ranked = [r["name"] for r in robust]
     rank_ic = {r["name"]: r["rank_ic_oos"] for r in robust}
@@ -52,9 +57,16 @@ def freeze(settings, *, universe="investable", horizon=5, threshold=0.8) -> Froz
 
 
 def main():
+    import argparse
+    p = argparse.ArgumentParser()
+    p.add_argument("--report", default="",
+                   help="显式指定 factor_mining_*.json;缺省取目录最新非 smoke")
+    p.add_argument("--universe", default=None,
+                   help="缺省用 settings.discovery_universe(生产宇宙)")
+    args = p.parse_args()
     s = get_settings()
-    ff = freeze(s)
-    print(f"冻结 {len(ff.factors)} 个因子 -> {frozen_path(s)}", flush=True)
+    ff = freeze(s, universe=args.universe, report_path=args.report or None)
+    print(f"冻结 {len(ff.factors)} 个因子(universe={ff.universe}) -> {frozen_path(s)}", flush=True)
     print(f"  {ff.factors}", flush=True)
 
 

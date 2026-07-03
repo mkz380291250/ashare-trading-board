@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     deepseek_base_url: str = "https://api.deepseek.com"
     deepseek_model: str = "deepseek-v4-pro"
     qlib_data_dir: str = "./data/qlib_cn"
+    discovery_universe: str = "cyb"        # 生产选股宇宙(2026-07-03 全市场→创业板,
+                                           # 同窗回测年化28.9%→42.3%、回撤-32%→-26%);
+                                           # 挖掘/冻结默认跟随此值,防 run_remine 静默切回
     initial_cash: int = 1_000_000
     decision_llm: str = "local"            # local | deepseek
     claude_bin: str = "/usr/local/bin/claude"

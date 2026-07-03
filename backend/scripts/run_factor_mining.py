@@ -33,7 +33,8 @@ def _d(s):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--universe", default="investable")
+    p.add_argument("--universe", default=None,
+                   help="缺省用 settings.discovery_universe(生产宇宙,run_remine 依赖此默认)")
     p.add_argument("--horizon", type=int, default=5)
     p.add_argument("--is-start", default="2022-01-01")
     p.add_argument("--split", default="2025-01-01")   # IS < split <= OOS
@@ -43,6 +44,8 @@ def main():
     args = p.parse_args()
 
     s = get_settings()
+    if args.universe is None:
+        args.universe = s.discovery_universe
     init_qlib(s.qlib_data_dir)
     from qlib.data import D
 
