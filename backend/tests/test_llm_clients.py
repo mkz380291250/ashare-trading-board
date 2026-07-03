@@ -60,3 +60,30 @@ def test_deepseek_posts_and_parses():
     assert c.complete("q", system="s") == "WORLD"
     assert seen["url"].endswith("/chat/completions")
     assert seen["json"]["messages"][0]["role"] == "system"
+
+
+def test_local_claude_retries_when_binary_missing():
+    # claude CLI 自动更新的几秒窗口内二进制不存在(2026-07-03 事故):应重试而非立崩
+    calls = {"n": 0}
+    naps = []
+
+    def flaky_run(cmd, **kw):
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise FileNotFoundError(cmd[0])
+        return _Proc("OK\n")
+
+    c = LocalClaudeClient(bin_path="/x/claude", run=flaky_run, sleep=naps.append)
+    assert c.complete("hi") == "OK"
+    assert calls["n"] == 3
+    assert len(naps) == 2                      # 两次失败各睡一次
+
+
+def test_local_claude_gives_up_after_max_retries():
+    def always_missing(cmd, **kw):
+        raise FileNotFoundError(cmd[0])
+
+    c = LocalClaudeClient(bin_path="/x/claude", run=always_missing, sleep=lambda s: None)
+    import pytest
+    with pytest.raises(FileNotFoundError):
+        c.complete("hi")

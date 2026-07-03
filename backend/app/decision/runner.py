@@ -23,7 +23,14 @@ class DecisionRunner:
     def run(self, as_of: date, briefs: list[StockBrief]) -> list[Decision]:
         out = []
         for brief in briefs:
-            d = self.graph.run(brief)
+            try:
+                d = self.graph.run(brief)
+            except Exception as exc:
+                # 单票辩论失败(如 LLM 调用崩)不带崩整晚:跳过该票继续
+                import traceback
+                print(f"DEBATE_SKIP {brief.code}: {exc!r}", flush=True)
+                traceback.print_exc()
+                continue
             self.s.execute(delete(Decision).where(
                 Decision.as_of == as_of, Decision.code == brief.code))
             status = "PENDING"

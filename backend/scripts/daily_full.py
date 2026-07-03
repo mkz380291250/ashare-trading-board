@@ -2,6 +2,7 @@
 可命令行运行(python scripts/daily_full.py),也被 APScheduler 调用 run_all()。"""
 import subprocess
 import sys
+import time
 import traceback
 from pathlib import Path
 from datetime import date
@@ -226,7 +227,16 @@ def run_all() -> bool:
     run.finished_at = datetime.now()
     run.ok = ok
     run.detail = json.dumps(results, ensure_ascii=False)
-    session.commit()
+    for attempt in range(3):                    # 收尾写库撞锁重试,保证 UI 状态必落
+        try:
+            session.commit()
+            break
+        except Exception:                       # noqa: BLE001 — database is locked 等
+            session.rollback()
+            if attempt == 2:
+                traceback.print_exc()
+            else:
+                time.sleep(15)
     print(f"RUN_DONE {run.as_of} ok={ok} " +
           ("; ".join(r["step"] for r in results if not r["ok"]) or "全部成功"), flush=True)
     return ok

@@ -30,18 +30,31 @@ class LocalClaudeClient(LLMClient):
 
     def __init__(self, bin_path: str = "/usr/local/bin/claude",
                  model: str = "claude-sonnet-5",
-                 timeout: int = 300, run=subprocess.run):
+                 timeout: int = 300, run=subprocess.run,
+                 retries: int = 3, retry_wait: int = 20, sleep=None):
         self.bin = bin_path
         self.model = model
         self.timeout = timeout
         self._run = run
+        self.retries = retries
+        self.retry_wait = retry_wait
+        import time
+        self._sleep = sleep or time.sleep
 
     def complete(self, prompt: str, system: str | None = None) -> str:
         full = prompt if not system else f"{system}\n\n{prompt}"
-        r = self._run([self.bin, "-p", full, "--model", self.model,
-                       "--output-format", "text"],
-                      capture_output=True, text=True, timeout=self.timeout)
-        return (r.stdout or "").strip()
+        cmd = [self.bin, "-p", full, "--model", self.model,
+               "--output-format", "text"]
+        for attempt in range(self.retries):
+            try:
+                r = self._run(cmd, capture_output=True, text=True,
+                              timeout=self.timeout)
+                return (r.stdout or "").strip()
+            except FileNotFoundError:
+                # claude CLI 自动更新的几秒窗口内二进制不存在:等一会重试
+                if attempt == self.retries - 1:
+                    raise
+                self._sleep(self.retry_wait)
 
 
 class DeepSeekClient(LLMClient):

@@ -33,3 +33,20 @@ def test_runner_idempotent_per_date_code(session):
     runner.run(date(2026, 5, 29), _briefs())
     runner.run(date(2026, 5, 29), _briefs())
     assert session.query(Decision).count() == 1
+
+
+def test_runner_isolates_per_brief_failures(session, capsys):
+    # 一只票的辩论崩溃(如 LLM 调用失败)不应带崩整晚:跳过该票,其余照常决策
+    class FlakyGraph:
+        def run(self, brief):
+            if brief.code == "BAD.SZ":
+                raise FileNotFoundError("/usr/local/bin/claude")
+            from app.decision.graph import Decision as D
+            return D(action="HOLD", confidence=0.5, shares=0, reasoning="ok")
+
+    briefs = [build_brief(c, [1.0], {}, {}, None)
+              for c in ("GOOD1.SZ", "BAD.SZ", "GOOD2.SZ")]
+    out = DecisionRunner(session, FlakyGraph()).run(date(2026, 7, 3), briefs)
+    codes = {d.code for d in out}
+    assert codes == {"GOOD1.SZ", "GOOD2.SZ"}   # BAD 跳过,其余正常落库
+    assert "DEBATE_SKIP BAD.SZ" in capsys.readouterr().out
