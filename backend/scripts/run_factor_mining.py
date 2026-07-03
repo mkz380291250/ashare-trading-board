@@ -112,7 +112,7 @@ def main():
     }
     rep_dir = Path(s.qlib_data_dir).resolve().parent / "reports"
     rep_dir.mkdir(parents=True, exist_ok=True)
-    tag = "smoke" if args.smoke else end.date().isoformat()
+    tag = ("smoke" if args.smoke else end.date().isoformat()) + f"_h{args.horizon}"
     (rep_dir / f"factor_mining_{tag}.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2))
     (rep_dir / f"factor_mining_{tag}.md").write_text(_md(report))
