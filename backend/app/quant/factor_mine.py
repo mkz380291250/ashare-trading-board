@@ -60,7 +60,29 @@ FACTOR_LIBRARY: dict[str, str] = {
     "wvma20": "Std(Abs($close/Ref($close,1)-1)*$volume,20)/(Mean(Abs($close/Ref($close,1)-1)*$volume,20)+1e-12)",
     # ★ 类 RSI(上涨动能占比)
     "up_ratio14": "Mean(Greater($close-Ref($close,1),0)*($close-Ref($close,1)),14)/(Mean(Abs($close-Ref($close,1)),14)+1e-12)",
+    # ★★ 风格因子(2026-07-03,依赖全字段 qlib 数据:turnover_rate/pe/pb/circ_mv/amount/volume_ratio)
+    # 市值
+    "ln_mv": "Log($circ_mv+1)",
+    "mv_chg20": "$circ_mv/(Ref($circ_mv,20)+1e-12)-1",
+    # 估值(EP=1/PE:PE负→EP负天然有序;null→NaN 由 dropna 跳过)
+    "ep": "1/($pe+1e-12)",
+    "bp": "1/($pb+1e-12)",
+    # 换手
+    "turn5": "Mean($turnover_rate,5)",
+    "turn20": "Mean($turnover_rate,20)",
+    "turn_chg5_20": "Mean($turnover_rate,5)/(Mean($turnover_rate,20)+1e-12)",
+    "turn_std20": "Std($turnover_rate,20)/(Mean($turnover_rate,20)+1e-12)",
+    # 流动性(真实成交额版 Amihud)
+    "amihud_amt20": "Mean(Abs($close/Ref($close,1)-1)/($amount+1),20)",
+    "amt5_20": "Mean($amount,5)/(Mean($amount,20)+1)",
+    # 量比
+    "vr5": "Mean($volume_ratio,5)",
+    "vr_chg": "$volume_ratio/(Mean($volume_ratio,20)+1e-12)",
 }
+
+STYLE_FACTORS = frozenset({
+    "ln_mv", "mv_chg20", "ep", "bp", "turn5", "turn20", "turn_chg5_20",
+    "turn_std20", "amihud_amt20", "amt5_20", "vr5", "vr_chg"})
 
 # 标签:T+1 买、T+1+h 卖的 h 日远期收益
 def label_expr(horizon: int = 5) -> str:
