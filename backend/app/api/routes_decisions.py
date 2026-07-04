@@ -62,10 +62,13 @@ def list_decisions(date: date_t | None = None, s: Session = Depends(get_session)
     picks = {p.code: p.score for p in s.scalars(
         select(DiscoveryPick).where(DiscoveryPick.as_of == target)).all()}
     names = NameLookup(s).map([r.code for r in rows])
+    # reasoning 只给摘要(全文动辄1.4万字×N行=数百KB,手机端卡顿源);全文走详情接口
     return [{"id": r.id, "as_of": r.as_of.isoformat(), "code": r.code,
              "name": names.get(r.code, ""),
              "action": r.action, "confidence": r.confidence, "shares": r.shares,
-             "status": r.status, "reasoning": r.reasoning,
+             "status": r.status,
+             "reasoning": (r.reasoning or "")[:500] +
+                          ("…" if r.reasoning and len(r.reasoning) > 500 else ""),
              "score": picks.get(r.code)} for r in rows]
 
 

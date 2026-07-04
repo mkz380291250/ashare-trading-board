@@ -36,3 +36,30 @@ def test_historical_date():
     r = _client().get("/api/discovery?date=2026-05-28")
     assert r.status_code == 200
     assert r.json()[0]["code"] == "OLD.SH"
+
+
+def _client_many(n=80):
+    engine = create_engine("sqlite:///:memory:", future=True,
+                           connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    Base.metadata.create_all(engine)
+    s = sessionmaker(bind=engine, expire_on_commit=False, future=True)()
+    for i in range(n):
+        s.add(DiscoveryPick(as_of=date(2026, 7, 3), code=f"{300000+i}.SZ",
+                            rank=i + 1, score=1.0 - i * 0.001, factors="{}"))
+    s.commit()
+    app = create_app()
+    app.dependency_overrides[get_session] = lambda: s
+    return TestClient(app)
+
+
+def test_discovery_default_limit_50():
+    # 全量选股1338行曾把手机端渲染卡死:列表接口默认只给前50名
+    data = _client_many(80).get("/api/discovery").json()
+    assert len(data) == 50
+    assert data[0]["rank"] == 1 and data[-1]["rank"] == 50
+
+
+def test_discovery_explicit_limit_and_zero_means_all():
+    c = _client_many(80)
+    assert len(c.get("/api/discovery?limit=10").json()) == 10
+    assert len(c.get("/api/discovery?limit=0").json()) == 80   # 0=全量(归因/脚本用)

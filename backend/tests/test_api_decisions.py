@@ -92,3 +92,18 @@ def test_get_decision_detail_returns_structured_roles():
 def test_get_decision_404():
     client, _ = _client()
     assert client.get("/api/decisions/99999").status_code == 404
+
+
+def test_list_decisions_truncates_reasoning():
+    # 列表接口不再回传1.4万字辩论全文(手机249KB卡顿根源之一);全文走详情接口
+    c, s = _client()
+    s.add(Decision(as_of=date(2026, 7, 3), code="300001.SZ", action="BUY",
+                   confidence=0.5, shares=100, reasoning="x" * 5000,
+                   status="LOW_CONF", created_at=date(2026, 7, 3)))
+    s.commit()
+    rows = c.get("/api/decisions").json()
+    row = [r for r in rows if r["code"] == "300001.SZ"][0]
+    assert len(row["reasoning"]) <= 500 + 1          # 截断+省略号
+    did = row["id"]
+    detail = c.get(f"/api/decisions/{did}").json()
+    assert "roles" in detail                          # 详情仍是结构化全文
