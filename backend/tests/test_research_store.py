@@ -36,3 +36,19 @@ def test_list_latest_one_per_code_newest(session):
     rows = st.list_latest(10)
     assert [r.code for r in rows] == ["600519.SH", "000001.SZ"]
     assert rows[0].summary == "new"
+
+
+def test_research_as_dict_fresh_and_stale():
+    # 研报要新鲜:7天内的转 dict 喂辩论,过期的宁可不给(免得旧观点误导)
+    from datetime import date
+    from app.db.models import ResearchNote
+    from app.research.store import research_as_dict
+
+    fresh = ResearchNote(code="X.SZ", as_of=date(2026, 7, 1), sentiment=0.6,
+                         rating_consensus="买入", summary="ok", source="t")
+    stale = ResearchNote(code="X.SZ", as_of=date(2026, 6, 20), sentiment=0.6,
+                         rating_consensus="买入", summary="old", source="t")
+    d = research_as_dict(fresh, date(2026, 7, 3))
+    assert d == {"sentiment": 0.6, "rating_consensus": "买入", "summary": "ok"}
+    assert research_as_dict(stale, date(2026, 7, 3)) is None
+    assert research_as_dict(None, date(2026, 7, 3)) is None

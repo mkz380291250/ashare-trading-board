@@ -119,6 +119,54 @@ def step_debate() -> None:
                 f"近期自高点回撤约{dd:.0f}%。下跌本身是入选理由,请评估反弹胜算"
                 f"(缩量止跌/跌速衰竭/企稳),而非要求已处上涨趋势。")
 
+    # ── 数据增强:基本面/财报/研报(全部 fail-soft,取不到照常辩论)────────
+    from app.data.fundamentals import build_fundamentals
+    from app.research.store import ResearchStore, research_as_dict
+    research_store = ResearchStore(session)
+    try:
+        import tushare as ts
+        from app.screener.earnings import TushareEarningsSource
+        from app.data.financials import FinancialsSource
+        _pro = ts.pro_api(s.tushare_token)
+        earnings = TushareEarningsSource(_pro)
+        financials = FinancialsSource(_pro)
+    except Exception as exc:                    # noqa: BLE001
+        print(f"FINANCIALS_INIT_SKIP {exc!r}", flush=True)
+        earnings = financials = None
+
+    from app.decision.trend import is_uptrend
+    _trend_start = date(as_of.year - 1, as_of.month, as_of.day)
+
+    def buy_filter(code):
+        if s.buy_trend_window <= 0:
+            return True
+        closes = [b.close for b in store.get_bars(code, _trend_start, as_of)]
+        return is_uptrend(closes, window=s.buy_trend_window, tol=s.buy_trend_tol)
+
+    # 预算当晚辩论候选(与 run_daily_decisions 同参数同结果),只给这几只刷新研报
+    # ——run_research.py 的口径是全量选股(现在1338只),夜链绝不能按那个跑
+    from app.decision.daily_pipeline import today_decided_codes
+    from app.decision.selection import select_debate_candidates
+    _skip = today_decided_codes(session, as_of)
+    pre_candidates = select_debate_candidates(
+        ranking, set(held) | _skip, target=target, quality_pctl=s.quality_pctl,
+        max_debate=s.max_debate, skip=_skip, buy_filter=buy_filter)
+    try:
+        from app.data.rate_limiter import RateLimiter
+        from app.research.sources import (TushareResearchSource,
+                                          EastMoneyNewsSource, CompositeSource)
+        from app.research.analyzer import ResearchAnalyzer
+        from app.research.runner import ResearchRunner
+        _limiter = RateLimiter(max_calls=s.research_max_per_min, period_s=60.0)
+        _src = CompositeSource([TushareResearchSource(_pro, limiter=_limiter),
+                                EastMoneyNewsSource()])
+        _rr = ResearchRunner(_src, ResearchAnalyzer(_llm(s)), research_store)
+        n_research = _rr.run(set(pre_candidates), as_of)
+        print(f"RESEARCH_REFRESH candidates={len(pre_candidates)} written={n_research}",
+              flush=True)
+    except Exception as exc:                    # noqa: BLE001 — 研报失败不挡辩论
+        print(f"RESEARCH_REFRESH_SKIP {exc!r}", flush=True)
+
     def brief_builder(codes):
         start = date(as_of.year - 1, as_of.month, as_of.day)
         out = []
@@ -131,18 +179,13 @@ def step_debate() -> None:
             factors = {"weak_factor": True} if code in weak else {}
             # 反转策略视角只挂给买入候选(非持仓);持仓的去留另有逻辑
             strategy = None if h else _reversal_thesis(closes)
-            out.append(build_brief(code, closes, factors, {}, holding,
+            fundamentals = build_fundamentals(session, code, as_of, earnings=earnings)
+            fin = financials.summary(code) if financials is not None else None
+            research = research_as_dict(research_store.latest(code), as_of)
+            out.append(build_brief(code, closes, factors, fundamentals, holding,
+                                   research=research, financials=fin,
                                    strategy=strategy, recent_volumes=volumes))
         return out
-
-    from app.decision.trend import is_uptrend
-    _trend_start = date(as_of.year - 1, as_of.month, as_of.day)
-
-    def buy_filter(code):
-        if s.buy_trend_window <= 0:
-            return True
-        closes = [b.close for b in store.get_bars(code, _trend_start, as_of)]
-        return is_uptrend(closes, window=s.buy_trend_window, tol=s.buy_trend_tol)
 
     summary = run_daily_decisions(
         session, as_of, ranking, held, graph=DecisionGraph(_llm(s), rounds=s.debate_rounds),

@@ -45,3 +45,15 @@ class ResearchStore:
             if len(out) >= limit:
                 break
         return out
+
+
+def research_as_dict(rnote, as_of, max_age_days: int = 7) -> dict | None:
+    """研报笔记转辩论 brief 用 dict;超过 max_age_days 的旧研报返回 None
+    (过期观点比没有观点更误导)。"""
+    if rnote is None:
+        return None
+    if (as_of - rnote.as_of).days > max_age_days:
+        return None
+    return {"sentiment": rnote.sentiment,
+            "rating_consensus": rnote.rating_consensus,
+            "summary": rnote.summary}
