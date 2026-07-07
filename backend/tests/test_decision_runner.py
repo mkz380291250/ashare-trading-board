@@ -50,3 +50,23 @@ def test_runner_isolates_per_brief_failures(session, capsys):
     codes = {d.code for d in out}
     assert codes == {"GOOD1.SZ", "GOOD2.SZ"}   # BAD 跳过,其余正常落库
     assert "DEBATE_SKIP BAD.SZ" in capsys.readouterr().out
+
+
+def test_runner_aborts_whole_run_on_usage_limit(session):
+    # 账号限额是全局状态:后续每只都会同样失败,继续跑只会写垃圾决策
+    # (2026-07-06 事故:限额提示被当发言,8只全 HOLD/0.0 落库)——应整场中止且不落库
+    import pytest
+    from app.decision.llm import UsageLimitError
+
+    class LimitedGraph:
+        def run(self, brief):
+            if brief.code == "B.SZ":
+                raise UsageLimitError("You've hit your session limit")
+            from app.decision.graph import Decision as D
+            return D(action="HOLD", confidence=0.5, shares=0, reasoning="ok")
+
+    briefs = [build_brief(c, [1.0], {}, {}, None) for c in ("A.SZ", "B.SZ", "C.SZ")]
+    with pytest.raises(UsageLimitError):
+        DecisionRunner(session, LimitedGraph()).run(date(2026, 7, 6), briefs)
+    session.rollback()
+    assert session.query(Decision).count() == 0   # A.SZ 也不该提交

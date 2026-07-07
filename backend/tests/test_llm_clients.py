@@ -1,4 +1,5 @@
-from app.decision.llm import LocalClaudeClient, DeepSeekClient
+import pytest
+from app.decision.llm import LocalClaudeClient, DeepSeekClient, UsageLimitError
 
 
 class _Proc:
@@ -84,6 +85,32 @@ def test_local_claude_gives_up_after_max_retries():
         raise FileNotFoundError(cmd[0])
 
     c = LocalClaudeClient(bin_path="/x/claude", run=always_missing, sleep=lambda s: None)
-    import pytest
     with pytest.raises(FileNotFoundError):
         c.complete("hi")
+
+
+def test_local_claude_raises_on_usage_limit_message():
+    # 2026-07-06 事故:账号限额时 claude -p 只回这句提示,曾被当成正常发言
+    # 写进决策(8只全 HOLD/置信度0),必须识别为错误
+    def limited_run(cmd, **kw):
+        return _Proc("You've hit your session limit · resets 4:50pm (UTC)\n")
+
+    c = LocalClaudeClient(bin_path="/x/claude", run=limited_run)
+    with pytest.raises(UsageLimitError):
+        c.complete("hi")
+
+
+def test_local_claude_raises_on_weekly_usage_limit_variant():
+    def limited_run(cmd, **kw):
+        return _Proc("You've hit your usage limit · resets Oct 4\n")
+
+    c = LocalClaudeClient(bin_path="/x/claude", run=limited_run)
+    with pytest.raises(UsageLimitError):
+        c.complete("hi")
+
+
+def test_local_claude_long_analysis_mentioning_limit_is_not_error():
+    # 分析师正文里偶然提到 limit 字样不该误杀:限额提示必然是短输出
+    text = "深入分析:" + "该股基本面稳健。" * 100 + " hit your session limit 只是引用。"
+    c = LocalClaudeClient(bin_path="/x/claude", run=lambda cmd, **kw: _Proc(text))
+    assert c.complete("hi") == text.strip()

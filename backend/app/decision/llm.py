@@ -4,6 +4,12 @@ import subprocess
 from abc import ABC, abstractmethod
 
 _JSON_RE = re.compile(r"\{[^{}]*\}")
+# claude CLI 账号限额时的整条输出就是这句提示(2026-07-06 曾被当成正常发言)
+_LIMIT_RE = re.compile(r"hit your (session|usage) limit", re.IGNORECASE)
+
+
+class UsageLimitError(RuntimeError):
+    """claude CLI 账号额度耗尽——全局状态,重试单次调用无意义,需长等或中止。"""
 
 
 def parse_verdict(text: str) -> dict:
@@ -49,7 +55,11 @@ class LocalClaudeClient(LLMClient):
             try:
                 r = self._run(cmd, capture_output=True, text=True,
                               timeout=self.timeout)
-                return (r.stdout or "").strip()
+                out = (r.stdout or "").strip()
+                # 限额提示必然是短输出;长正文里偶然出现字样不算
+                if len(out) < 500 and _LIMIT_RE.search(out):
+                    raise UsageLimitError(out)
+                return out
             except FileNotFoundError:
                 # claude CLI 自动更新的几秒窗口内二进制不存在:等一会重试
                 if attempt == self.retries - 1:

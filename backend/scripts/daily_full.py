@@ -21,7 +21,7 @@ from app.data.prices import DictPriceProvider, latest_close
 from app.trading.broker import PaperBroker
 from app.decision.graph import DecisionGraph
 from app.decision.brief import build_brief
-from app.decision.llm import LocalClaudeClient, DeepSeekClient
+from app.decision.llm import LocalClaudeClient, DeepSeekClient, UsageLimitError
 from app.decision.daily_pipeline import run_daily_decisions
 from app.reporting.daily_summary import build_daily_summary
 from app.attribution.forward_ic import latest_rolling_rank_ic
@@ -74,6 +74,21 @@ def step_select() -> None:
     frozen = load_frozen(frozen_path(s))
     insts = D.list_instruments(D.instruments(frozen.universe), as_list=True)
     run_qlib_discovery(session, as_of, frozen, insts)
+
+
+def _retry_on_usage_limit(fn, retries: int = 6, wait_s: int = 1800, sleep=time.sleep):
+    """claude 账号限额(UsageLimitError)时长等重试:限额按时段重置(观测过
+    22:00 跑时距重置还有约3小时),每 30 分钟试一次共 6 次可跨过;仍限额则抛出,
+    让当步标失败——绝不能把限额提示当分析写库(2026-07-06 事故)。"""
+    for attempt in range(retries + 1):
+        try:
+            return fn()
+        except UsageLimitError as exc:
+            if attempt == retries:
+                raise
+            print(f"USAGE_LIMIT_WAIT {exc}; {wait_s}s 后重试"
+                  f"({attempt + 1}/{retries})", flush=True)
+            sleep(wait_s)
 
 
 def step_debate() -> None:
@@ -187,13 +202,18 @@ def step_debate() -> None:
                                    strategy=strategy, recent_volumes=volumes))
         return out
 
-    summary = run_daily_decisions(
-        session, as_of, ranking, held, graph=DecisionGraph(_llm(s), rounds=s.debate_rounds),
-        brief_builder=brief_builder, broker=PaperBroker(session),
-        price_of=lambda c: latest_close(store, c, as_of),
-        target=target, quality_pctl=s.quality_pctl,
-        min_confidence=s.min_confidence, max_debate=s.max_debate, account_id=1,
-        buy_filter=buy_filter)
+    def _attempt():
+        session.rollback()          # 上一轮限额中止的未提交决策先清掉
+        return run_daily_decisions(
+            session, as_of, ranking, held,
+            graph=DecisionGraph(_llm(s), rounds=s.debate_rounds),
+            brief_builder=brief_builder, broker=PaperBroker(session),
+            price_of=lambda c: latest_close(store, c, as_of),
+            target=target, quality_pctl=s.quality_pctl,
+            min_confidence=s.min_confidence, max_debate=s.max_debate, account_id=1,
+            buy_filter=buy_filter)
+
+    summary = _retry_on_usage_limit(_attempt)
     print(build_daily_summary(session, as_of, account_id=1), flush=True)
     print(f"DEBATE_DONE {summary}", flush=True)
 

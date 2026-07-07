@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.db.models import Decision
 from app.decision.graph import DecisionGraph
 from app.decision.brief import StockBrief
+from app.decision.llm import UsageLimitError
 from app.trading.broker import PaperBroker, InsufficientFunds, InsufficientShares
 
 
@@ -25,6 +26,9 @@ class DecisionRunner:
         for brief in briefs:
             try:
                 d = self.graph.run(brief)
+            except UsageLimitError:
+                # 账号限额是全局状态:继续跑只会把限额提示写成一排假 HOLD,整场中止
+                raise
             except Exception as exc:
                 # 单票辩论失败(如 LLM 调用崩)不带崩整晚:跳过该票继续
                 import traceback
