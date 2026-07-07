@@ -1,4 +1,7 @@
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
+
+# 测试数据用相对日期:接口按 days 窗口过滤,写死日期会随时间推移掉出窗外
+_RECENT = datetime.combine(date.today() - timedelta(days=3), datetime.min.time())
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -34,11 +37,11 @@ def client():
     s.add(StockName(code="600519.SH", name="贵州茅台"))
     for i, c in enumerate([10.0, 11.0]):
         s.add(MinuteQuote(code="600519.SH", freq="1min",
-                          trade_time=datetime(2026, 6, 4, 9, 31 + i),
+                          trade_time=_RECENT.replace(hour=9, minute=31 + i),
                           open=c, high=c, low=c, close=c, vol=1.0, amount=1.0))
     # 别的周期不应混入 1min 查询
     s.add(MinuteQuote(code="600519.SH", freq="5min",
-                      trade_time=datetime(2026, 6, 4, 9, 35),
+                      trade_time=_RECENT.replace(hour=9, minute=35),
                       open=99.0, high=99.0, low=99.0, close=99.0, vol=1.0))
     # 日线走 daily_quotes
     from app.db.models import DailyQuote
@@ -111,7 +114,7 @@ def test_kline_default_freq_is_day(client):
 def test_kline_fetches_on_demand_when_db_empty(client):
     # 库里没有 000001.SZ -> 应当场抓取(假采集器返回行)、落库并返回
     fetched = _Fetcher(rows=[
-        {"trade_time": datetime(2026, 6, 4, 9, 31), "open": 12.0, "high": 12.1,
+        {"trade_time": _RECENT.replace(hour=9, minute=31), "open": 12.0, "high": 12.1,
          "low": 11.9, "close": 12.05, "vol": 5.0, "amount": 60.0},
     ])
     client.app.dependency_overrides[routes_kline.get_minute_fetcher] = lambda: fetched
