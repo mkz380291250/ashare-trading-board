@@ -91,6 +91,18 @@ def _retry_on_usage_limit(fn, retries: int = 6, wait_s: int = 1800, sleep=time.s
             sleep(wait_s)
 
 
+def _lowrisk_thesis(closes):
+    if len(closes) < 5:
+        return None
+    rets = [closes[i] / closes[i - 1] - 1 for i in range(1, len(closes))]
+    mean = sum(rets) / len(rets)
+    var = sum((r - mean) ** 2 for r in rets) / len(rets)
+    vol_ann = (var ** 0.5) * (252 ** 0.5) * 100        # 年化波动率(%)
+    return (f"低风险异象因子选出:近期日收益年化波动率约{vol_ann:.0f}%(偏低)、"
+            f"走势清淡。入选理由是低波动/低换手/低流动性特征,请评估其作为稳健"
+            f"低波标的的持有价值(平稳缩量、无暴涨暴跌)。")
+
+
 def step_debate() -> None:
     s = get_settings()
     session = _session()
@@ -122,17 +134,6 @@ def step_debate() -> None:
     if weak_list and not already_recorded(session, "WEAK_SELL", as_of):
         record_action(session, "WEAK_SELL", as_of, {"codes": weak_list},
                       f"持仓弱因子标卖候选:{weak_list}")
-
-    def _reversal_thesis(closes):
-        if len(closes) < 5:
-            return None
-        last, ma = closes[-1], sum(closes) / len(closes)
-        hi = max(closes)
-        below = (1 - last / ma) * 100 if ma else 0.0
-        dd = (1 - last / hi) * 100 if hi else 0.0
-        return (f"短周期反转(超跌反弹)因子选出:现价{last}低于均线约{below:.0f}%、"
-                f"近期自高点回撤约{dd:.0f}%。下跌本身是入选理由,请评估反弹胜算"
-                f"(缩量止跌/跌速衰竭/企稳),而非要求已处上涨趋势。")
 
     # ── 数据增强:基本面/财报/研报(全部 fail-soft,取不到照常辩论)────────
     from app.data.fundamentals import build_fundamentals
@@ -192,8 +193,8 @@ def step_debate() -> None:
             h = holds.get(code)
             holding = {"shares": h.shares, "cost": h.cost} if h else None
             factors = {"weak_factor": True} if code in weak else {}
-            # 反转策略视角只挂给买入候选(非持仓);持仓的去留另有逻辑
-            strategy = None if h else _reversal_thesis(closes)
+            # 低风险策略视角只挂给买入候选(非持仓);持仓的去留另有逻辑
+            strategy = None if h else _lowrisk_thesis(closes)
             fundamentals = build_fundamentals(session, code, as_of, earnings=earnings)
             fin = financials.summary(code) if financials is not None else None
             research = research_as_dict(research_store.latest(code), as_of)
