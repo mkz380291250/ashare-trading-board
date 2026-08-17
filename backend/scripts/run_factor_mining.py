@@ -14,7 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app.config import get_settings
+from app.config import get_settings, resolve_horizon
 from app.backtest.qlib_data import init_qlib
 from app.backtest.factor import factor_report
 from app.quant.factor_mine import (
@@ -31,21 +31,27 @@ def _d(s):
     return datetime.strptime(s, "%Y-%m-%d").date()
 
 
-def main():
+def build_parser():
     p = argparse.ArgumentParser()
     p.add_argument("--universe", default=None,
                    help="缺省用 settings.discovery_universe(生产宇宙,run_remine 依赖此默认)")
-    p.add_argument("--horizon", type=int, default=5)
+    p.add_argument("--horizon", type=int, default=None,
+                   help="缺省用 settings.discovery_horizon(防写死旧周期)")
     p.add_argument("--is-start", default="2022-01-01")
     p.add_argument("--split", default="2025-01-01")   # IS < split <= OOS
     p.add_argument("--ic-min", type=float, default=0.02)
     p.add_argument("--ir-min", type=float, default=0.3)
     p.add_argument("--smoke", action="store_true")
-    args = p.parse_args()
+    return p
+
+
+def main():
+    args = build_parser().parse_args()
 
     s = get_settings()
     if args.universe is None:
         args.universe = s.discovery_universe
+    args.horizon = resolve_horizon(args.horizon, s)
     init_qlib(s.qlib_data_dir)
     from qlib.data import D
 

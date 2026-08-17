@@ -8,7 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import pandas as pd
-from app.config import get_settings
+from app.config import get_settings, resolve_horizon
 from app.backtest.qlib_data import init_qlib
 from app.quant.ml_pipeline import cs_zscore
 from app.quant.factor_mine import FACTOR_LIBRARY, to_datetime_instrument
@@ -27,9 +27,10 @@ def _latest_mining(reports_dir: Path) -> dict:
     return json.loads(Path(files[-1]).read_text())
 
 
-def freeze(settings, *, universe=None, horizon=5, threshold=0.8,
+def freeze(settings, *, universe=None, horizon=None, threshold=0.8,
            report_path=None) -> FrozenFactors:
     universe = universe or settings.discovery_universe
+    horizon = resolve_horizon(horizon, settings)
     init_qlib(settings.qlib_data_dir)
     from qlib.data import D
     reports_dir = Path(settings.qlib_data_dir).resolve().parent / "reports"
@@ -56,17 +57,25 @@ def freeze(settings, *, universe=None, horizon=5, threshold=0.8,
     return ff
 
 
-def main():
+def build_parser():
     import argparse
     p = argparse.ArgumentParser()
     p.add_argument("--report", default="",
                    help="显式指定 factor_mining_*.json;缺省取目录最新非 smoke")
     p.add_argument("--universe", default=None,
                    help="缺省用 settings.discovery_universe(生产宇宙)")
-    args = p.parse_args()
+    p.add_argument("--horizon", type=int, default=None,
+                   help="缺省用 settings.discovery_horizon")
+    return p
+
+
+def main():
+    args = build_parser().parse_args()
     s = get_settings()
-    ff = freeze(s, universe=args.universe, report_path=args.report or None)
-    print(f"冻结 {len(ff.factors)} 个因子(universe={ff.universe}) -> {frozen_path(s)}", flush=True)
+    ff = freeze(s, universe=args.universe, horizon=args.horizon,
+                report_path=args.report or None)
+    print(f"冻结 {len(ff.factors)} 个因子(universe={ff.universe} horizon={ff.horizon}) "
+          f"-> {frozen_path(s)}", flush=True)
     print(f"  {ff.factors}", flush=True)
 
 
