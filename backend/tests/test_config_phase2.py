@@ -24,3 +24,10 @@ def test_resolve_horizon_prefers_cli_then_settings():
     s = Settings()
     assert resolve_horizon(5, s) == 5          # 显式 CLI 值优先
     assert resolve_horizon(None, s) == 20      # 缺省回落到 settings
+
+
+def test_rebalance_settings_defaults():
+    from app.config import Settings
+    s = Settings()
+    assert s.rebalance_weekday == 0        # 周一
+    assert s.rebalance_buffer == 5

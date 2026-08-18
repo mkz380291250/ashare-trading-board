@@ -16,15 +16,16 @@ from app.db.database import make_engine, make_session_factory
 import app.db.models  # noqa: F401
 from app.data.quote_store import QuoteStore
 from app.screener.tracklist import Tracker
-from app.db.models import Position, DiscoveryPick
+from app.db.models import Position, DiscoveryPick, Account
 from app.data.prices import DictPriceProvider, latest_close
 from app.trading.broker import PaperBroker
 from app.decision.graph import DecisionGraph
 from app.decision.brief import build_brief
 from app.decision.llm import LocalClaudeClient, DeepSeekClient, UsageLimitError
-from app.decision.daily_pipeline import run_daily_decisions
 from app.reporting.daily_summary import build_daily_summary
 from app.attribution.forward_ic import latest_rolling_rank_ic
+from app.portfolio.rebalance import is_rebalance_day
+from app.portfolio.execute import rebalance_portfolio
 
 PY = sys.executable
 
@@ -103,20 +104,27 @@ def _lowrisk_thesis(closes):
             f"低波标的的持有价值(平稳缩量、无暴涨暴跌)。")
 
 
-def step_debate() -> None:
+def _as_of_for_rebalance(store) -> "date":
+    return store.trading_dates(date.today(), 1)[0]
+
+
+def step_rebalance() -> None:
     s = get_settings()
     session = _session()
     store = QuoteStore(session)
-    as_of = store.trading_dates(date.today(), 1)[0]
+    as_of = _as_of_for_rebalance(store)
+    if not is_rebalance_day(as_of, s.rebalance_weekday):
+        print(f"REBALANCE_SKIP 非再平衡日 {as_of}(weekday={as_of.weekday()})", flush=True)
+        return
     top_date = session.scalar(select(func.max(DiscoveryPick.as_of)))
     if top_date != as_of:
         raise RuntimeError(
-            f"step_debate: 无当日选股产物(最新={top_date}, 期望={as_of}),跳过")
-    ranking = [(r.code, r.score) for r in session.scalars(
+            f"step_rebalance: 无当日选股产物(最新={top_date}, 期望={as_of})")
+    ranking = [(r.code, r.rank) for r in session.scalars(
         select(DiscoveryPick).where(DiscoveryPick.as_of == top_date)
-        .order_by(DiscoveryPick.rank)).all()] if top_date else []
+        .order_by(DiscoveryPick.rank)).all()]
     if not ranking:
-        raise RuntimeError("step_debate: 无 DiscoveryPick 产物,跳过(先跑 step_select)")
+        raise RuntimeError("step_rebalance: 无 DiscoveryPick 产物")
     holds = {p.code: p for p in session.scalars(
         select(Position).where(Position.account_id == 1)).all()}
     held = set(holds)
@@ -127,7 +135,6 @@ def step_debate() -> None:
     weak_list = weak_holdings(session, held, as_of, pctl=s.weak_pctl,
                               consecutive=s.weak_consecutive)
     weak = set(weak_list)
-    target = len(held) if off else s.target_positions
     if off and not already_recorded(session, "RISK_OFF", as_of):
         record_action(session, "RISK_OFF", as_of, {"reason": off_reason},
                       f"风控停买:{off_reason}")
@@ -159,14 +166,12 @@ def step_debate() -> None:
         closes = [b.close for b in store.get_bars(code, _trend_start, as_of)]
         return is_uptrend(closes, window=s.buy_trend_window, tol=s.buy_trend_tol)
 
-    # 预算当晚辩论候选(与 run_daily_decisions 同参数同结果),只给这几只刷新研报
+    # 预算当晚再平衡辩论池,只给这几只刷新研报
     # ——run_research.py 的口径是全量选股(现在1338只),夜链绝不能按那个跑
-    from app.decision.daily_pipeline import today_decided_codes
-    from app.decision.selection import select_debate_candidates
-    _skip = today_decided_codes(session, as_of)
-    pre_candidates = select_debate_candidates(
-        ranking, set(held) | _skip, target=target, quality_pctl=s.quality_pctl,
-        max_debate=s.max_debate, skip=_skip, buy_filter=buy_filter)
+    from app.portfolio.rebalance import plan_rebalance
+    _sells, _buy_pool = plan_rebalance(ranking, held, topk=s.target_positions,
+                                       buffer=s.rebalance_buffer)
+    pre_candidates = sorted(held | set(_buy_pool))
     try:
         from app.data.rate_limiter import RateLimiter
         from app.research.sources import (TushareResearchSource,
@@ -203,20 +208,25 @@ def step_debate() -> None:
                                    strategy=strategy, recent_volumes=volumes))
         return out
 
+    def _equity_of():
+        acc = session.get(Account, 1)
+        mv = sum(p.shares * (latest_close(store, p.code, as_of) or 0.0)
+                 for p in holds.values())
+        return (acc.cash if acc else 0.0) + mv
+
     def _attempt():
-        session.rollback()          # 上一轮限额中止的未提交决策先清掉
-        return run_daily_decisions(
+        session.rollback()
+        return rebalance_portfolio(
             session, as_of, ranking, held,
             graph=DecisionGraph(_llm(s), rounds=s.debate_rounds),
-            brief_builder=brief_builder, broker=PaperBroker(session),
+            broker=PaperBroker(session), brief_builder=brief_builder,
             price_of=lambda c: latest_close(store, c, as_of),
-            target=target, quality_pctl=s.quality_pctl,
-            min_confidence=s.min_confidence, max_debate=s.max_debate, account_id=1,
-            buy_filter=buy_filter)
+            equity_of=_equity_of, topk=s.target_positions,
+            buffer=s.rebalance_buffer, risk_off=off, account_id=1)
 
     summary = _retry_on_usage_limit(_attempt)
     print(build_daily_summary(session, as_of, account_id=1), flush=True)
-    print(f"DEBATE_DONE {summary}", flush=True)
+    print(f"REBALANCE_DONE {summary}", flush=True)
 
 
 def step_mark() -> None:
@@ -272,7 +282,7 @@ def run_all() -> bool:
     from datetime import datetime
     from app.db.models import SchedulerRun
     steps = (("quotes", step_quotes), ("qlib", step_qlib), ("tracklist", step_tracklist),
-             ("select", step_select), ("debate", step_debate), ("mark", step_mark),
+             ("select", step_select), ("rebalance", step_rebalance), ("mark", step_mark),
              ("attribution", step_attribution), ("policy", step_policy))
     session = _session()
     run = SchedulerRun(as_of=date.today(), started_at=datetime.now(), ok=False, detail="[]")
