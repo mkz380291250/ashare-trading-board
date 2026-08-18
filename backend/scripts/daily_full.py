@@ -157,15 +157,6 @@ def step_rebalance() -> None:
         print(f"FINANCIALS_INIT_SKIP {exc!r}", flush=True)
         earnings = financials = None
 
-    from app.decision.trend import is_uptrend
-    _trend_start = date(as_of.year - 1, as_of.month, as_of.day)
-
-    def buy_filter(code):
-        if s.buy_trend_window <= 0:
-            return True
-        closes = [b.close for b in store.get_bars(code, _trend_start, as_of)]
-        return is_uptrend(closes, window=s.buy_trend_window, tol=s.buy_trend_tol)
-
     # 预算当晚再平衡辩论池,只给这几只刷新研报
     # ——run_research.py 的口径是全量选股(现在1338只),夜链绝不能按那个跑
     from app.portfolio.rebalance import plan_rebalance
