@@ -31,3 +31,8 @@ def test_rebalance_settings_defaults():
     s = Settings()
     assert s.rebalance_weekday == 0        # 周一
     assert s.rebalance_buffer == 5
+
+
+def test_rebalance_n_drop_default_2():
+    from app.config import Settings
+    assert Settings().rebalance_n_drop == 2

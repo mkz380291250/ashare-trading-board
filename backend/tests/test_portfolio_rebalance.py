@@ -14,7 +14,7 @@ def _ranked(n):
 
 
 def test_plan_empty_holdings_buys_topk_plus_buffer_candidates():
-    sells, buys = plan_rebalance(_ranked(30), set(), topk=15, buffer=5)
+    sells, buys = plan_rebalance(_ranked(30), set(), topk=15, buffer=5, n_drop=15)
     assert sells == []
     # 空位=15,候选给 slots+buffer=20 个,按 rank 升序
     assert buys == [f"3000{i:02d}.SZ" for i in range(20)]
@@ -22,7 +22,7 @@ def test_plan_empty_holdings_buys_topk_plus_buffer_candidates():
 
 def test_plan_all_held_in_topk_no_action():
     held = {f"3000{i:02d}.SZ" for i in range(15)}
-    sells, buys = plan_rebalance(_ranked(30), held, topk=15, buffer=5)
+    sells, buys = plan_rebalance(_ranked(30), held, topk=15, buffer=5, n_drop=15)
     assert sells == []
     assert buys == []                                        # 无空位
 
@@ -30,7 +30,7 @@ def test_plan_all_held_in_topk_no_action():
 def test_plan_holding_dropped_out_of_buffer_is_sold_and_refilled():
     # 持仓 300021(rank 22 > 15+5)应卖;空出 1 位,买 rank 最高的未持仓
     held = {f"3000{i:02d}.SZ" for i in range(14)} | {"300021.SZ"}
-    sells, buys = plan_rebalance(_ranked(30), held, topk=15, buffer=5)
+    sells, buys = plan_rebalance(_ranked(30), held, topk=15, buffer=5, n_drop=15)
     assert sells == ["300021.SZ"]
     assert buys[0] == "300014.SZ"                            # rank15,第一个未持仓
     assert len(buys) == 1 + 5                                # slots=1 +buffer
@@ -38,13 +38,13 @@ def test_plan_holding_dropped_out_of_buffer_is_sold_and_refilled():
 
 def test_plan_holding_within_buffer_not_sold():
     held = {"300017.SZ"}                                     # rank 18,在 15+5 内
-    sells, buys = plan_rebalance(_ranked(30), held, topk=15, buffer=5)
+    sells, buys = plan_rebalance(_ranked(30), held, topk=15, buffer=5, n_drop=15)
     assert "300017.SZ" not in sells
 
 
 def test_plan_delisted_holding_sold():
     held = {"999999.SZ"}                                     # 不在 ranked
-    sells, buys = plan_rebalance(_ranked(30), held, topk=15, buffer=5)
+    sells, buys = plan_rebalance(_ranked(30), held, topk=15, buffer=5, n_drop=15)
     assert sells == ["999999.SZ"]
 
 
@@ -54,3 +54,25 @@ def test_equal_weight_shares():
     assert equal_weight_shares(1_000_000, 15, 999999.0) == 0  # 买不起1手
     assert equal_weight_shares(1_000_000, 15, 0.0) == 0       # 价非法
     assert equal_weight_shares(0.0, 15, 10.0) == 0
+
+
+def test_plan_caps_rank_sells_at_n_drop():
+    # 9 只掉出榜(rank 22..30 > 20),n_drop=2 → 只卖排名最差的 2 只(rank30、29)
+    held = {f"3000{i:02d}.SZ" for i in range(6)} | {f"3000{i:02d}.SZ" for i in range(21, 30)}
+    sells, buys = plan_rebalance(_ranked(30), held, topk=15, buffer=5, n_drop=2)
+    assert sells == sorted(["300029.SZ", "300028.SZ"])   # rank30、rank29 最差
+    assert len(buys) >= 2                                 # 至少能补回卖出的空位
+
+
+def test_plan_delisted_capped_by_n_drop():
+    # 3 只退市(不在 ranked),n_drop=2 → 本周只卖 2 只
+    held = {"999997.SZ", "999998.SZ", "999999.SZ"}
+    sells, buys = plan_rebalance(_ranked(30), held, topk=15, buffer=5, n_drop=2)
+    assert len(sells) == 2
+
+
+def test_plan_n_drop_not_exceeded_when_fewer_drops():
+    # 只 1 只掉出榜(rank26>20),n_drop=2 → 卖该 1 只(不足上限,行为不变)
+    held = {f"3000{i:02d}.SZ" for i in range(14)} | {"300025.SZ"}
+    sells, buys = plan_rebalance(_ranked(30), held, topk=15, buffer=5, n_drop=2)
+    assert sells == ["300025.SZ"]
