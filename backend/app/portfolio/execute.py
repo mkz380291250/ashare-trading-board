@@ -7,10 +7,11 @@ from app.portfolio.rebalance import plan_rebalance, equal_weight_shares
 
 
 def rebalance_portfolio(session, as_of, ranking, holdings, *, graph, broker,
-                        brief_builder, price_of, equity_of, topk, buffer,
+                        brief_builder, price_of, equity_of, topk, buffer, n_drop,
                         risk_off=False, account_id=1) -> dict:
     holdings = set(holdings)
-    sells, buy_pool = plan_rebalance(ranking, holdings, topk=topk, buffer=buffer)
+    sells, buy_pool = plan_rebalance(ranking, holdings, topk=topk,
+                                     buffer=buffer, n_drop=n_drop)
     if risk_off:
         buy_pool = []
     sell_set = set(sells)

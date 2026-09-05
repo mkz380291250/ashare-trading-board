@@ -161,7 +161,7 @@ def step_rebalance() -> None:
     # ——run_research.py 的口径是全量选股(现在1338只),夜链绝不能按那个跑
     from app.portfolio.rebalance import plan_rebalance
     _sells, _buy_pool = plan_rebalance(ranking, held, topk=s.target_positions,
-                                       buffer=s.rebalance_buffer)
+                                       buffer=s.rebalance_buffer, n_drop=s.rebalance_n_drop)
     pre_candidates = sorted(held | set(_buy_pool))
     try:
         from app.data.rate_limiter import RateLimiter
@@ -213,7 +213,8 @@ def step_rebalance() -> None:
             broker=PaperBroker(session), brief_builder=brief_builder,
             price_of=lambda c: latest_close(store, c, as_of),
             equity_of=_equity_of, topk=s.target_positions,
-            buffer=s.rebalance_buffer, risk_off=off, account_id=1)
+            buffer=s.rebalance_buffer, n_drop=s.rebalance_n_drop,
+            risk_off=off, account_id=1)
 
     summary = _retry_on_usage_limit(_attempt)
     print(build_daily_summary(session, as_of, account_id=1), flush=True)
