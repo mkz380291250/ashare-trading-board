@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     initial_cash: int = 1_000_000
     decision_llm: str = "local"            # local | deepseek
     claude_bin: str = "/usr/local/bin/claude"
+    claude_model: str = "claude-opus-4-8"  # 辩论本地 claude 模型(2026-09-12 sonnet-5→opus-4-8,用户要更强推理)
     debate_rounds: int = 2
     research_llm: str = "local"            # local | deepseek
     research_max_per_min: int = 50         # tushare 研报接口限流(保守)

@@ -33,7 +33,7 @@ PY = sys.executable
 def _llm(s):
     if s.decision_llm == "deepseek":
         return DeepSeekClient(s.deepseek_api_key, s.deepseek_base_url, s.deepseek_model)
-    return LocalClaudeClient(bin_path=s.claude_bin)
+    return LocalClaudeClient(bin_path=s.claude_bin, model=s.claude_model)
 
 
 def _session():
