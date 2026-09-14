@@ -10,8 +10,8 @@ def test_phase2_defaults():
 
 
 def test_claude_model_default_opus():
-    # 辩论本地 claude 模型(2026-09-12 升级 opus-4-8);_llm 会把它传给 LocalClaudeClient
-    assert Settings().claude_model == "claude-opus-4-8"
+    # 辩论本地 claude 模型(2026-09-14 升级 opus-5);_llm 会把它传给 LocalClaudeClient
+    assert Settings().claude_model == "claude-opus-5"
 
 
 def test_llm_builds_local_claude_with_configured_model():
@@ -19,7 +19,7 @@ def test_llm_builds_local_claude_with_configured_model():
     from app.decision.llm import LocalClaudeClient
     client = df._llm(Settings())
     assert isinstance(client, LocalClaudeClient)
-    assert client.model == "claude-opus-4-8"
+    assert client.model == "claude-opus-5"
 
 
 def test_discovery_universe_default_cyb():
