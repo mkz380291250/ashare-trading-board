@@ -171,8 +171,9 @@ def test_rows_from_quotes_carry_factor_and_ref_shares():
     ref = RefRow(date(2026, 9, 11), 10.0, 5.0, 100000.0, 200000.0, vols5=(100, 100, 100, 100, 100))
     quotes = {"000001.SZ": _q(day, 11.0, 10.0, 200.0, circ_mv=110000.0, total_mv=220000.0),
               "000002.SZ": _q(date(2026, 9, 10), 11.0, 10.0, 200.0),      # 停牌:快照停在旧日期
-              "000003.SZ": _q(day, 9.0, 9.0, 100.0, circ_mv=90000.0)}      # 除权:昨收 9 ≠ 前收 10
-    refs = {"000001.SZ": ref, "000002.SZ": ref, "000003.SZ": ref}
+              "000003.SZ": _q(day, 9.0, 9.0, 100.0, circ_mv=90000.0),      # 除权:昨收 9 ≠ 前收 10
+              "000004.SZ": _q(day, 10.0, 10.0, 0.0, open=0.0, high=0.0, low=0.0)}   # 今日停牌:全 0
+    refs = {"000001.SZ": ref, "000002.SZ": ref, "000003.SZ": ref, "000004.SZ": ref}
     rows = {r["code"]: r for r in rows_from_quotes(day, quotes, refs, sorted(quotes))}
     assert set(rows) == {"000001.SZ", "000003.SZ"}
     r = rows["000001.SZ"]

@@ -235,6 +235,9 @@ def rows_from_quotes(day: date, quotes: dict[str, dict], refs: dict[str, RefRow]
         q = quotes.get(code)
         if not q or q.get("date") != day or not q.get("close") or q.get("vol") is None:
             continue
+        # 停牌股腾讯快照日期照样是今天,但开高低=0、量=0、收盘=昨收:tushare 不出这种行,跳过
+        if not q.get("open") or not q.get("high") or not q["vol"]:
+            continue
         ref = refs.get(code)
         if ref is not None and day <= ref.trade_date:
             continue

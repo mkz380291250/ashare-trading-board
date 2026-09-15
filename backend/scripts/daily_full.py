@@ -51,6 +51,12 @@ def step_qlib() -> None:
                     "--qlib-dir", s.qlib_data_dir], cwd=ROOT, check=True)
 
 
+def step_health() -> None:
+    """数据健康检查(DB 缺天/空值/价格/因子 + qlib 与 DB 一致性);FAIL 抛错让本步标红,
+    但不阻断后面的选股(daily_full 各步独立)。"""
+    subprocess.run([PY, str(ROOT / "scripts" / "check_data_health.py")], cwd=ROOT, check=True)
+
+
 def step_tracklist() -> None:
     session = make_session_factory(make_engine())()
     store = QuoteStore(session)
@@ -267,7 +273,8 @@ def run_all() -> bool:
     import json
     from datetime import datetime
     from app.db.models import SchedulerRun
-    steps = (("quotes", step_quotes), ("qlib", step_qlib), ("tracklist", step_tracklist),
+    steps = (("quotes", step_quotes), ("qlib", step_qlib), ("health", step_health),
+             ("tracklist", step_tracklist),
              ("select", step_select), ("rebalance", step_rebalance), ("mark", step_mark),
              ("attribution", step_attribution), ("policy", step_policy))
     session = _session()
