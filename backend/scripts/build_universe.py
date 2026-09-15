@@ -15,20 +15,10 @@ from app.backtest.symbols import from_qlib_symbol
 from app.quant.universe import filter_investable, write_instruments
 
 
-def fetch_basic(token: str):
-    """tushare stock_basic -> [(ts_code, name, list_date: date)]。"""
-    import tushare as ts
-    pro = ts.pro_api(token)
-    df = pro.stock_basic(exchange="", list_status="L",
-                         fields="ts_code,name,list_date")
-    out = []
-    for r in df.itertuples(index=False):
-        try:
-            ld = datetime.strptime(str(r.list_date), "%Y%m%d").date()
-        except (ValueError, TypeError):
-            ld = None
-        out.append((r.ts_code, r.name, ld))
-    return out
+def fetch_basic(token: str = ""):
+    """baostock stock_basic -> [(ts_code, name, list_date: date)]。"""
+    from app.data.baostock_source import stock_basic
+    return stock_basic()
 
 
 def main():

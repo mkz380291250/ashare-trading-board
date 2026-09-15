@@ -5,11 +5,19 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     database_url: str = "postgresql+psycopg2://ashare:ashare@localhost:5432/ashare"
-    tushare_token: str = ""
+    tushare_token: str = ""                # 2026-09-16 到期后弃用;行情改 baostock/腾讯
+    quotes_source: str = "baostock"        # 日线"补缺天"时逐只 K 线的首选源:baostock | tencent。
+                                           # 正常每晚走腾讯批量快照(28 个请求拿全市场,秒级),
+                                           # 只有漏跑了一天才逐只补:baostock 字段全但同 IP 单会话、
+                                           # 0.3~3s/只(2~4 小时),连续失败自动熔断切腾讯 K 线
+                                           # (腾讯 K 线对 ~30 req/s 突发会 WAF 封 501,已限速 8/s)
     deepseek_api_key: str = ""
     deepseek_base_url: str = "https://api.deepseek.com"
     deepseek_model: str = "deepseek-v4-pro"
     qlib_data_dir: str = "./data/qlib_cn"
+    qlib_export_start: str = "2021-01-01"  # 每晚 qlib 重建的起始日;库里 2010 年起都有(2026-09-15
+                                           # tushare 到期前追溯),但全导会让夜链重建慢 3 倍,
+                                           # 做长周期回测/挖掘时再临时改早
     discovery_universe: str = "cyb"        # 生产选股宇宙(2026-07-03 全市场→创业板,
                                            # 同窗回测年化28.9%→42.3%、回撤-32%→-26%);
                                            # 挖掘/冻结默认跟随此值,防 run_remine 静默切回

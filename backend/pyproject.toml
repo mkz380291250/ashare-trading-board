@@ -10,6 +10,7 @@ dependencies = [
   "pydantic-settings>=2.2",
   "pandas>=2.0",
   "tushare>=1.4",
+  "baostock>=0.8",
   "pyqlib",
   "apscheduler>=3.10",
 ]

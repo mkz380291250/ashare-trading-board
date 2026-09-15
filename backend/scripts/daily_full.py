@@ -147,12 +147,9 @@ def step_rebalance() -> None:
     from app.research.store import ResearchStore, research_as_dict
     research_store = ResearchStore(session)
     try:
-        import tushare as ts
-        from app.screener.earnings import TushareEarningsSource
-        from app.data.financials import FinancialsSource
-        _pro = ts.pro_api(s.tushare_token)
-        earnings = TushareEarningsSource(_pro)
-        financials = FinancialsSource(_pro)
+        # 2026-09 tushare 到期:财报/增速改 baostock 季频表(同一对象兼具两接口)
+        from app.data.baostock_financials import BaostockFinancials
+        earnings = financials = BaostockFinancials()
     except Exception as exc:                    # noqa: BLE001
         print(f"FINANCIALS_INIT_SKIP {exc!r}", flush=True)
         earnings = financials = None
@@ -164,14 +161,11 @@ def step_rebalance() -> None:
                                        buffer=s.rebalance_buffer, n_drop=s.rebalance_n_drop)
     pre_candidates = sorted(held | set(_buy_pool))
     try:
-        from app.data.rate_limiter import RateLimiter
-        from app.research.sources import (TushareResearchSource,
-                                          EastMoneyNewsSource, CompositeSource)
+        from app.research.sources import EastMoneyNewsSource, CompositeSource
         from app.research.analyzer import ResearchAnalyzer
         from app.research.runner import ResearchRunner
-        _limiter = RateLimiter(max_calls=s.research_max_per_min, period_s=60.0)
-        _src = CompositeSource([TushareResearchSource(_pro, limiter=_limiter),
-                                EastMoneyNewsSource()])
+        # tushare 研报(report_rc)随 token 到期下线,只剩东财个股新闻
+        _src = CompositeSource([EastMoneyNewsSource()])
         _rr = ResearchRunner(_src, ResearchAnalyzer(_llm(s)), research_store)
         n_research = _rr.run(set(pre_candidates), as_of)
         print(f"RESEARCH_REFRESH candidates={len(pre_candidates)} written={n_research}",

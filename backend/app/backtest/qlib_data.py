@@ -64,19 +64,28 @@ def export_market_csvs_full(session, codes, start, end, out_dir: str) -> int:
     return n
 
 
-def export_csi300_csv(pro, start, end, out_dir: str):
-    """tushare index_daily(000300.SH) -> CSV(符号 SH000300, factor=1.0)。"""
+def export_csi300_csv(src, start, end, out_dir: str):
+    """baostock 指数日线(sh.000300) -> CSV(符号 SH000300, factor=1.0)。
+    src: BaostockSource(或任何有 index_daily(bs_code, start, end) 的对象)。"""
     import pandas as pd
-    df = pro.index_daily(ts_code="000300.SH",
-                         start_date=start.strftime("%Y%m%d"),
-                         end_date=end.strftime("%Y%m%d"))
+    try:
+        df = src.index_daily("sh.000300", start, end)
+    except Exception as exc:                    # noqa: BLE001 — baostock 卡死/掉线 → 腾讯兜底
+        print(f"CSI300_BAOSTOCK_FAIL {exc!r}; fallback tencent", flush=True)
+        df = None
     if df is None or getattr(df, "empty", True):
-        return None
-    df = df.sort_values("trade_date")
+        from app.data import tencent_daily as tx
+        rows = tx.klines("000300.SH", start, end)
+        if not rows:
+            return None
+        df = pd.DataFrame({"date": pd.to_datetime([r[0] for r in rows]),
+                           "open": [float(r[1]) for r in rows], "high": [float(r[3]) for r in rows],
+                           "low": [float(r[4]) for r in rows], "close": [float(r[2]) for r in rows],
+                           "volume": [float(r[5]) for r in rows]})
     out_df = pd.DataFrame({
-        "date": pd.to_datetime(df["trade_date"]),
+        "date": pd.to_datetime(df["date"]),
         "open": df["open"], "high": df["high"], "low": df["low"],
-        "close": df["close"], "volume": df["vol"], "factor": 1.0})
+        "close": df["close"], "volume": df["volume"], "factor": 1.0})
     out = Path(out_dir); out.mkdir(parents=True, exist_ok=True)
     path = out / "SH000300.csv"
     out_df.to_csv(path, index=False)

@@ -12,14 +12,10 @@ from app.db.models import DecisionJob
 from app.data.quote_store import QuoteStore
 from app.data.prices import latest_close
 from app.data.fundamentals import build_fundamentals
-from app.data.financials import FinancialsSource
-from app.screener.earnings import TushareEarningsSource
 from app.research.store import ResearchStore
 from app.research.ondemand import research_note_for
-from app.research.sources import (TushareResearchSource, EastMoneyNewsSource,
-                                  CompositeSource)
+from app.research.sources import EastMoneyNewsSource, CompositeSource
 from app.research.analyzer import ResearchAnalyzer
-from app.data.rate_limiter import RateLimiter
 from app.decision.llm import LocalClaudeClient, DeepSeekClient
 from app.decision.brief import build_brief
 from app.decision.graph import DecisionGraph
@@ -71,13 +67,9 @@ def main():
     llm = _llm(s)
     research_source = research_analyzer = earnings = financials = None
     try:
-        import tushare as ts
-        pro = ts.pro_api(s.tushare_token)
-        earnings = TushareEarningsSource(pro)
-        financials = FinancialsSource(pro, limiter=RateLimiter(s.research_max_per_min, 60.0))
-        research_source = CompositeSource([
-            TushareResearchSource(pro, limiter=RateLimiter(s.research_max_per_min, 60.0)),
-            EastMoneyNewsSource()])
+        from app.data.baostock_financials import BaostockFinancials
+        earnings = financials = BaostockFinancials()
+        research_source = CompositeSource([EastMoneyNewsSource()])
         research_analyzer = ResearchAnalyzer(llm)
     except Exception:
         pass  # 数据源初始化失败也不挡决策(走缓存/中性)

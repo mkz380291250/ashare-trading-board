@@ -11,8 +11,6 @@ import app.db.models  # noqa: F401
 from app.db.models import Position, DiscoveryPick
 from app.data.quote_store import QuoteStore
 from app.data.fundamentals import build_fundamentals
-from app.data.financials import FinancialsSource
-from app.screener.earnings import TushareEarningsSource
 from app.research.store import ResearchStore
 from app.decision.llm import LocalClaudeClient, DeepSeekClient
 from app.decision.brief import build_brief
@@ -35,10 +33,8 @@ def main():
     store = QuoteStore(session)
     research = ResearchStore(session)
     try:
-        import tushare as ts
-        _pro = ts.pro_api(s.tushare_token)
-        earnings = TushareEarningsSource(_pro)
-        financials = FinancialsSource(_pro)
+        from app.data.baostock_financials import BaostockFinancials
+        earnings = financials = BaostockFinancials()
     except Exception:
         earnings = financials = None
 

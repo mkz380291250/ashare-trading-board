@@ -19,6 +19,16 @@ class MarketFetcher:
         self.limiter.acquire(); daily = self.pro.daily(trade_date=ds)
         self.limiter.acquire(); basic = self.pro.daily_basic(trade_date=ds)
         self.limiter.acquire(); adj = self.pro.adj_factor(trade_date=ds)
+        if daily is None or daily.empty:
+            return []
+        if adj is None or adj.empty or "adj_factor" not in adj.columns:
+            # tushare 偶发返回空表(2026-09-15 追溯 2015-07 时撞到过):重试一次,仍空则报错
+            # 让调用方跳过这一天,绝不能默默写 1.0 的假因子
+            self.limiter.acquire(); adj = self.pro.adj_factor(trade_date=ds)
+            if adj is None or adj.empty or "adj_factor" not in adj.columns:
+                raise ValueError(f"adj_factor empty for {ds}")
+        if basic is None or basic.empty:
+            basic = pd.DataFrame({"ts_code": []})
 
         # daily_basic shares column names with daily (close/open/...); take only
         # the metric columns we need so the merge does not rename `close` etc.

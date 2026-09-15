@@ -22,11 +22,10 @@ def sync_names(session, rows) -> int:
     return len(rows)
 
 
-def fetch_rows(token: str):
-    import tushare as ts
-    pro = ts.pro_api(token)
-    df = pro.stock_basic(exchange="", list_status="L", fields="ts_code,name")
-    return [(r.ts_code, r.name) for r in df.itertuples(index=False)]
+def fetch_rows(token: str = ""):
+    """baostock 在市 A 股名称(北交所 baostock 无,沿用库内旧名)。"""
+    from app.data.baostock_source import stock_basic
+    return [(code, name) for code, name, _ in stock_basic()]
 
 
 def main():

@@ -6,7 +6,7 @@ from datetime import date
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # make `app` importable
 
 from app.config import get_settings
-from app.data.tushare_source import TushareSource
+from app.data.baostock_source import BaostockSource
 from app.data.qlib_store import write_instrument_csv
 
 
@@ -17,7 +17,7 @@ def main():
     p.add_argument("--end", default=date.today().strftime("%Y%m%d"))
     args = p.parse_args()
     s = get_settings()
-    src = TushareSource(token=s.tushare_token)
+    src = BaostockSource()   # tushare 到期,同接口换 baostock
 
     def _d(x):
         return date(int(x[:4]), int(x[4:6]), int(x[6:8]))
