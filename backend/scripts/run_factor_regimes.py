@@ -49,6 +49,7 @@ def main():
     p.add_argument("--start", default="2011-01-04")
     p.add_argument("--qlib-dir", default="", help="缺省 settings.qlib_research_dir")
     p.add_argument("--limit", type=int, default=0, help="冒烟:只取前 N 只")
+    p.add_argument("--end", default="", help="截止日(严格样本外检验用)")
     p.add_argument("--chunk-years", type=int, default=0,
                    help=">0 则按 N 年分段取数再拼接(省内存)")
     args = p.parse_args()
@@ -61,6 +62,8 @@ def main():
     import pandas as pd
 
     end = D.calendar()[-1]
+    if args.end:
+        end = min(end, pd.Timestamp(args.end))
     inst_cfg = D.instruments(args.universe)          # 传 config 而非列表:动态池按成员窗口取数
     insts = D.list_instruments(inst_cfg, as_list=True)
     if args.limit:
@@ -116,7 +119,7 @@ def main():
            "factors": factors}
     rep_dir = Path(qlib_dir).resolve().parent / "reports"
     rep_dir.mkdir(parents=True, exist_ok=True)
-    tag = f"{end.date().isoformat()}_h{horizon}" + ("_smoke" if args.limit else "")
+    tag = f"{end.date().isoformat()}_h{horizon}" + ("_smoke" if args.limit else "") + ("_wf" if args.end else "")
     (rep_dir / f"factor_regimes_{tag}.json").write_text(
         json.dumps(rep, ensure_ascii=False, indent=2))
     (rep_dir / f"factor_regimes_{tag}.md").write_text(render_md(rep))

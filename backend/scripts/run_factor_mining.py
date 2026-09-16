@@ -49,6 +49,7 @@ def build_parser():
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--qlib-dir", default="",
                    help="缺省 settings.qlib_data_dir;研究库传 data/qlib_cn_full(自动长窗)")
+    p.add_argument("--end", default="", help="截止日(严格样本外检验用,如 2021-12-31)")
     p.add_argument("--long", action="store_true",
                    help="强制长窗 IS 2011-01-04 / split 2022-01-01")
     return p
@@ -63,12 +64,15 @@ def main():
     args.horizon = resolve_horizon(args.horizon, s)
     qlib_dir = args.qlib_dir or s.qlib_data_dir
     is_full = bool(args.qlib_dir) and "full" in args.qlib_dir
-    if args.long or is_full:
+    if (args.long or is_full) and args.split == "2025-01-01":   # 显式给了 --split 就不覆盖
         args.is_start, args.split = "2011-01-04", "2022-01-01"
     init_qlib(qlib_dir)
     from qlib.data import D
 
     end = D.calendar()[-1]
+    if args.end:
+        import pandas as pd
+        end = min(end, pd.Timestamp(args.end))
     inst_cfg = D.instruments(args.universe)          # 传 config 而非列表:动态池按成员窗口取数
     insts = D.list_instruments(inst_cfg, as_list=True)
     sub = None
@@ -153,6 +157,8 @@ def main():
     tag = ("smoke" if args.smoke else end.date().isoformat()) + f"_h{args.horizon}"
     if is_full:
         tag += "_full"
+    if args.end:
+        tag += "_wf"
     (rep_dir / f"factor_mining_{tag}.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2))
     (rep_dir / f"factor_mining_{tag}.md").write_text(_md(report))
