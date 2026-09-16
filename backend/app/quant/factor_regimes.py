@@ -60,11 +60,20 @@ def aggregate(ric: pd.Series, regimes=REGIMES) -> dict:
     return out
 
 
-def robust_all_regimes(agg: dict, *, min_same_sign: int = 6,
-                       min_abs_ic: float = MARK_THR, min_hits: int = 5) -> bool:
-    """≥min_same_sign 个 regime 与全期同号,且 ≥min_hits 个 regime 同号且 |ic|≥min_abs_ic。"""
+def robust_all_regimes(agg: dict, *, min_same_sign: int | None = None,
+                       min_abs_ic: float = MARK_THR, min_hits: int | None = None) -> bool:
+    """≥min_same_sign 个 regime 与全期同号,且 ≥min_hits 个 regime 同号且 |ic|≥min_abs_ic。
+    缺省按"有数据的 regime 数 n"取 n−1 / n−2(7 段时即 6/5;截止 2021 只有 5 段时 4/3),
+    这样 walk-forward 截断历史时门槛按比例收紧而不是无法满足。"""
     sign = np.sign(agg["overall"]["ic"]) or 1.0
     regs = [r for r in agg["regimes"].values() if r.get("days", 0) > 0]
+    n = len(regs)
+    if n == 0:
+        return False
+    if min_same_sign is None:
+        min_same_sign = max(n - 1, 1)
+    if min_hits is None:
+        min_hits = max(n - 2, 1)
     same = sum(1 for r in regs if np.sign(r["ic"]) == sign)
     hits = sum(1 for r in regs if abs(r["ic"]) >= min_abs_ic and np.sign(r["ic"]) == sign)
     return same >= min_same_sign and hits >= min_hits

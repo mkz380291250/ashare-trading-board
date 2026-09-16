@@ -54,6 +54,15 @@ def test_robust_all_regimes_rule():
     neg = {"overall": {"ic": -0.03},
            "regimes": {k: {"ic": -0.02, "days": 50} for k in base}}
     assert robust_all_regimes(neg)               # 反向因子同样算稳健
+    # 只有 5 段(walk-forward 截止 2021):门槛按比例 4/3
+    five = {"overall": {"ic": 0.03},
+            "regimes": {f"R{i}": {"ic": 0.02, "days": 50} for i in range(1, 6)}}
+    assert robust_all_regimes(five)
+    five["regimes"]["R2"] = {"ic": -0.01, "days": 50}
+    assert robust_all_regimes(five)              # 4/5 同号、4 段达标 → 仍稳健
+    five["regimes"]["R3"] = {"ic": -0.01, "days": 50}
+    assert not robust_all_regimes(five)          # 3/5 同号 < 4
+    assert not robust_all_regimes({"overall": {"ic": 0.03}, "regimes": {}})
 
 
 def test_render_md_marks_directions():
