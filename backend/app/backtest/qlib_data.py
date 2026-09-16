@@ -34,9 +34,12 @@ _FULL_COLS = ["date", "open", "high", "low", "close", "volume", "factor",
               "pe", "pb", "amount"]
 
 
-def export_market_csvs_full(session, codes, start, end, out_dir: str) -> int:
+def export_market_csvs_full(session, codes, start, end, out_dir: str,
+                            extra_fn=None) -> int:
     """全字段导出:直接查 DailyQuote(含换手/估值/市值/成交额,不复权),
-    每只票一个 qlib 符号命名的 CSV。返回成功写出的只数。"""
+    每只票一个 qlib 符号命名的 CSV。extra_fn(code, dates) 可返回 index=dates 的
+    附加列(如 PIT 财务字段),按行拼接后一并写出(dump_bin 自动成字段)。
+    返回成功写出的只数。"""
     import pandas as pd
     from app.db.models import DailyQuote
     out = Path(out_dir)
@@ -59,6 +62,11 @@ def export_market_csvs_full(session, codes, start, end, out_dir: str) -> int:
             "total_mv": r.total_mv, "pe": r.pe, "pb": r.pb,
             "amount": r.amount,
         } for r in rows], columns=_FULL_COLS)
+        if extra_fn is not None:
+            dates = pd.DatetimeIndex(pd.to_datetime(df["date"]))
+            extra = extra_fn(code, dates)
+            if extra is not None and len(extra):
+                df = pd.concat([df, extra.reset_index(drop=True)], axis=1)
         df.to_csv(out / f"{to_qlib_symbol(code)}.csv", index=False)
         n += 1
     return n
