@@ -120,3 +120,14 @@ def init_qlib(qlib_dir: str) -> None:
     import qlib
     qlib.init(provider_uri=qlib_dir, region="cn")
     _QLIB_INITED = True
+
+
+def available_fields(qlib_dir: str) -> list[str]:
+    """qlib 库中任一票的字段名列表(features/<sym>/<field>.day.bin)。空库 → []。"""
+    feat = Path(qlib_dir) / "features"
+    if not feat.exists():
+        return []
+    for d in sorted(feat.iterdir()):
+        if d.is_dir():
+            return sorted(f.name.split(".")[0] for f in d.iterdir() if f.name.endswith(".day.bin"))
+    return []
