@@ -24,8 +24,8 @@ def main():
     p.add_argument("--extra-db", default="./data/tushare_extra.db")
     p.add_argument("--no-moneyflow", action="store_true",
                    help="--extra 时跳过资金流表(夜链用;资金流只做研究且冷读极慢)")
-    p.add_argument("--bulk", action="store_true",
-                   help="顺序扫全表再分组导出(研究库全导用;--start 给了默认开)")
+    p.add_argument("--per-code", action="store_true",
+                   help="旧的逐票查询导出(默认走顺序扫全表 bulk:本机机械盘冷缓存下逐票读会卡死)")
     args = p.parse_args()
 
     s = get_settings()
@@ -42,8 +42,7 @@ def main():
         from app.quant.pit_fields import PitFields
         pit = PitFields(args.extra_db, moneyflow=not args.no_moneyflow)
         extra_fn = pit.for_code
-    bulk = args.bulk or bool(args.start)
-    if bulk:
+    if not args.per_code:
         db_path = engine.url.database
         codes = None
         if args.limit:

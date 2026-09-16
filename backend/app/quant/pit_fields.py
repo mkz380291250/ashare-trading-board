@@ -214,14 +214,31 @@ def moneyflow_daily(mf: pd.DataFrame, dates: pd.DatetimeIndex) -> pd.DataFrame:
 
 
 class PitFields:
-    """按票读 tushare_extra.db 并产出 PIT 日频附加列。"""
+    """按票读 tushare_extra.db 并产出 PIT 日频附加列。
 
-    def __init__(self, db_path: str, moneyflow: bool = True):
-        """moneyflow=False 跳过 1400 万行的资金流表(夜链用:研究专用字段,且冷读极慢)。"""
+    preload=True(默认):启动时把四张财务表 + 分红表按需要的列顺序扫一遍进内存
+    (几十万行,秒级),之后按票从内存取——避免逐票 SQL 在机械盘冷缓存下的随机读
+    (本机外部写入持续挤占页缓存,预热也留不住)。资金流表 1400 万行只在 moneyflow=True
+    时按票查询(研究用)。"""
+
+    _TABLES = {
+        "inc": ("ts_income", "ann_date,end_date,revenue,n_income_attr_p"),
+        "cf": ("ts_cashflow", "ann_date,end_date,n_cashflow_act"),
+        "bs": ("ts_balancesheet", "ann_date,end_date,total_assets"),
+        "fi": ("ts_fina_indicator", "ann_date,end_date,q_roe,grossprofit_margin,q_sales_yoy,debt_to_assets"),
+        "div": ("ts_dividend", "div_proc,ex_date,cash_div_tax"),
+    }
+    _MF_COLS = ("trade_date,buy_sm_amount,sell_sm_amount,buy_lg_amount,sell_lg_amount,"
+                "buy_elg_amount,sell_elg_amount,net_mf_amount")
+
+    def __init__(self, db_path: str, moneyflow: bool = True, preload: bool = True):
         self.con = sqlite3.connect(db_path)
         self.con.execute("PRAGMA query_only=1")
         self.moneyflow = moneyflow
         self.missing = 0
+        self._mem: dict[str, dict] | None = None
+        if preload:
+            self.preload()
 
     def _q(self, sql, code):
         try:
@@ -231,17 +248,29 @@ class PitFields:
                 return pd.DataFrame()
             raise
 
+    def preload(self) -> None:
+        """整表顺序读(只取所需列)并按 ts_code 分组进内存。缺表 → 该表为空。"""
+        self._mem = {}
+        for key, (table, cols) in self._TABLES.items():
+            try:
+                df = pd.read_sql_query(f"select ts_code,{cols} from {table}", self.con)
+            except Exception as e:
+                if "no such table" in str(e):
+                    self._mem[key] = {}
+                    continue
+                raise
+            self._mem[key] = {c: g.drop(columns=["ts_code"]) for c, g in df.groupby("ts_code", sort=False)}
+
+    def _table(self, key: str, code: str) -> pd.DataFrame:
+        if self._mem is not None:
+            return self._mem[key].get(code, pd.DataFrame())
+        table, cols = self._TABLES[key]
+        return self._q(f"select {cols} from {table} where ts_code=?", code)
+
     def for_code(self, code: str, dates: pd.DatetimeIndex) -> pd.DataFrame:
-        inc = self._q("select ann_date,end_date,revenue,n_income_attr_p "
-                      "from ts_income where ts_code=?", code)
-        cf = self._q("select ann_date,end_date,n_cashflow_act from ts_cashflow where ts_code=?", code)
-        bs = self._q("select ann_date,end_date,total_assets from ts_balancesheet where ts_code=?", code)
-        fi = self._q("select ann_date,end_date,q_roe,grossprofit_margin,q_sales_yoy,"
-                     "debt_to_assets from ts_fina_indicator where ts_code=?", code)
-        div = self._q("select div_proc,ex_date,cash_div_tax from ts_dividend where ts_code=?", code)
-        mf = self._q("select trade_date,buy_sm_amount,sell_sm_amount,buy_lg_amount,sell_lg_amount,"
-                     "buy_elg_amount,sell_elg_amount,net_mf_amount from ts_moneyflow where ts_code=?",
-                     code) if self.moneyflow else pd.DataFrame()
+        inc, cf, bs, fi, div = (self._table(k, code) for k in ("inc", "cf", "bs", "fi", "div"))
+        mf = self._q(f"select {self._MF_COLS} from ts_moneyflow where ts_code=?", code) \
+            if self.moneyflow else pd.DataFrame()
         if inc.empty and fi.empty:
             self.missing += 1
         dates = pd.DatetimeIndex(dates)

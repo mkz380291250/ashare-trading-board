@@ -138,3 +138,27 @@ def test_pitfields_moneyflow_off_skips_table(tmp_path):
     out = pit.for_code("300750.SZ", dates)
     assert out["mf_lg_net"].isna().all()
     assert out.loc["2025-03-17", "ann_age"] == 0
+
+
+def test_pitfields_preload_matches_per_code_queries(tmp_path):
+    import sqlite3
+    db = tmp_path / "z.db"
+    con = sqlite3.connect(db)
+    con.execute("create table ts_income (ts_code,ann_date,end_date,revenue,n_income_attr_p)")
+    con.execute("create table ts_dividend (ts_code,div_proc,ex_date,cash_div_tax)")
+    for y in range(2021, 2026):
+        for q, (md, ytd) in enumerate([("0331", 10), ("0630", 25), ("0930", 45), ("1231", 70)]):
+            ann = f"{y}{md}" if md != "1231" else f"{y + 1}0328"
+            con.execute("insert into ts_income values (?,?,?,?,?)",
+                        ("300750.SZ", ann, f"{y}{md}", 100.0 * (q + 1), float(ytd + y - 2021)))
+    con.execute("insert into ts_dividend values ('300750.SZ','实施','20250605',2.0)")
+    con.commit()
+    con.close()
+    dates = pd.bdate_range("2025-01-01", "2025-12-31")
+    a = PitFields(str(db), moneyflow=False, preload=True).for_code("300750.SZ", dates)
+    b = PitFields(str(db), moneyflow=False, preload=False).for_code("300750.SZ", dates)
+    pd.testing.assert_frame_equal(a, b)
+    assert a["np_ttm"].notna().any() and (a["dps_ttm"].max() == 2.0)
+    # 内存里没有的票 → 全 NaN(分红 0)
+    c = PitFields(str(db), moneyflow=False, preload=True).for_code("000001.SZ", dates)
+    assert c.drop(columns=["dps_ttm"]).isna().all().all()
