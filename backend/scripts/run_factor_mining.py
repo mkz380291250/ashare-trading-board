@@ -18,13 +18,14 @@ from app.config import get_settings, resolve_horizon
 from app.backtest.qlib_data import init_qlib
 from app.backtest.factor import factor_report
 from app.quant.factor_mine import (
-    FACTOR_LIBRARY, STYLE_FACTORS, label_expr, to_datetime_instrument,
-    rank_by_abs_ir, is_robust)
+    FACTOR_LIBRARY, STYLE_FACTORS, FUNDAMENTAL_FACTORS, FLOW_FACTORS,
+    label_expr, to_datetime_instrument, rank_by_abs_ir, is_robust)
 
 NOVEL = {"sharpe20", "sharpe60", "corr_rv10", "intra_ret", "intra_range",
          "intra_pos", "gap", "mean_intra20", "ma_dist20", "ma_dist60",
          "amihud20", "maxret20", "minret20", "wvma20", "up_ratio14"}
-NOVEL = NOVEL | STYLE_FACTORS   # 风格因子也按"新"标星展示
+NOVEL = (NOVEL | STYLE_FACTORS | frozenset(FUNDAMENTAL_FACTORS)
+         | frozenset(FLOW_FACTORS))   # 风格/财务/资金流因子也按"新"标星展示
 
 
 def _d(s):

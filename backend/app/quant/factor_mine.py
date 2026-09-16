@@ -84,6 +84,73 @@ STYLE_FACTORS = frozenset({
     "ln_mv", "mv_chg20", "ep", "bp", "turn5", "turn20", "turn_chg5_20",
     "turn_std20", "amihud_amt20", "amt5_20", "vr5", "vr_chg"})
 
+# ★★★ 财务/分红家族(2026-09-16,依赖研究库 PIT 字段:pit_fields.PIT_COLS;
+# 金额 元,$total_mv 万元,比率 %;forward-fill 后 Ref(...,250) ≈ 一年前)
+FUNDAMENTAL_FACTORS: dict[str, str] = {
+    # 估值(TTM)
+    "ep_ttm":  "$np_ttm/($total_mv*1e4+1)",
+    "sp_ttm":  "$rev_ttm/($total_mv*1e4+1)",
+    "cfp_ttm": "$ocf_ttm/($total_mv*1e4+1)",
+    "dy":      "$dps_ttm/($close+1e-12)",
+    # 质量
+    "q_roe":   "$q_roe",
+    "gm":      "$gm",
+    "gm_chg":  "$gm-Ref($gm,250)",
+    "accrual": "$accrual",
+    "ocf_np":  "$ocf_ttm/(Abs($np_ttm)+1)",
+    "lev":     "$debt_to_assets",
+    # 成长
+    "q_sales_yoy":  "$q_sales_yoy",
+    "q_profit_yoy": "$q_profit_yoy",
+    "profit_acc":   "$profit_acc",
+    "sue":          "$sue",
+    "asset_g":      "$total_assets/(Ref($total_assets,250)+1)-1",
+    # 事件:公告后 20 个交易日内的 SUE(盈余公告后漂移),否则 0
+    "pead":         "If(Le($ann_age,20),$sue,0)",
+}
+
+# 资金流家族:tushare 到期后无免费续接源 → 只做研究,不进 frozen
+FLOW_FACTORS: dict[str, str] = {
+    "lg_net5":    "Mean($mf_lg_net,5)/(Mean($amount,5)*0.1+1)",
+    "lg_net20":   "Mean($mf_lg_net,20)/(Mean($amount,20)*0.1+1)",
+    "sm_net5":    "Mean($mf_sm_net,5)/(Mean($amount,5)*0.1+1)",
+    "lg_net_chg": "Mean($mf_lg_net,5)/(Mean($amount,5)*0.1+1)"
+                  "-Mean($mf_lg_net,20)/(Mean($amount,20)*0.1+1)",
+    "mf_cons20":  "Mean(Greater($mf_lg_net,0)/(Abs($mf_lg_net)+1e-6),20)",
+}
+RESEARCH_ONLY = frozenset(FLOW_FACTORS)
+FACTOR_LIBRARY.update(FUNDAMENTAL_FACTORS)
+FACTOR_LIBRARY.update(FLOW_FACTORS)
+
+# 因子族(合成时同族限量,防一族信息重复加权)
+FACTOR_FAMILY: dict[str, str] = {
+    **{n: "动量" for n in ("mom5", "mom10", "mom20", "mom60")},
+    **{n: "反转" for n in ("rev1", "rev3", "rev5")},
+    **{n: "波动" for n in ("vol10", "vol20", "vol60", "wvma20")},
+    **{n: "风险调整动量" for n in ("sharpe20", "sharpe60")},
+    **{n: "量能" for n in ("vmom", "turn_chg", "vstd20", "vr5", "vr_chg", "amt5_20")},
+    **{n: "量价相关" for n in ("corr_pv10", "corr_pv20", "corr_rv10")},
+    **{n: "价位" for n in ("pos20", "pos60", "ma_dist20", "ma_dist60")},
+    **{n: "日内" for n in ("intra_ret", "intra_range", "intra_pos", "gap", "mean_intra20")},
+    **{n: "趋势" for n in ("slope20", "rsqr20", "up_ratio14")},
+    **{n: "流动性" for n in ("amihud20", "amihud_amt20")},
+    **{n: "分布" for n in ("skew20", "kurt20")},
+    **{n: "极值" for n in ("maxret20", "minret20")},
+    **{n: "市值" for n in ("ln_mv", "mv_chg20")},
+    **{n: "估值" for n in ("ep", "bp", "ep_ttm", "sp_ttm", "cfp_ttm")},
+    **{n: "换手" for n in ("turn5", "turn20", "turn_chg5_20", "turn_std20")},
+    **{n: "质量" for n in ("q_roe", "gm", "gm_chg", "accrual", "ocf_np", "lev")},
+    **{n: "成长" for n in ("q_sales_yoy", "q_profit_yoy", "profit_acc", "sue", "asset_g", "pead")},
+    "dy": "分红",
+    **{n: "资金流" for n in FLOW_FACTORS},
+}
+
+
+def required_fields(name: str) -> set[str]:
+    """因子表达式引用的 $字段 集合。"""
+    import re
+    return set(re.findall(r"\$([a-z_]+)", FACTOR_LIBRARY[name]))
+
 # 标签:T+1 买、T+1+h 卖的 h 日远期收益
 def label_expr(horizon: int = 5) -> str:
     return f"Ref($close,-{horizon + 1})/Ref($close,-1)-1"
