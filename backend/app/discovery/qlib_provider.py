@@ -12,9 +12,10 @@ from app.quant.factor_mine import FACTOR_LIBRARY, to_datetime_instrument
 from app.backtest.symbols import from_qlib_symbol
 
 
-def score_panel(panel: pd.DataFrame, signs: dict) -> pd.DataFrame:
+def score_panel(panel: pd.DataFrame, signs: dict,
+                weights: dict | None = None) -> pd.DataFrame:
     """panel: MultiIndex(datetime,instrument) 因子面板 -> 单列 'score'。"""
-    return composite_score(panel, signs)
+    return composite_score(panel, signs, weights=weights)
 
 
 def latest_section(score_df: pd.DataFrame) -> pd.Series:
@@ -45,7 +46,7 @@ def run_qlib_discovery(session: Session, as_of: date, frozen: FrozenFactors,
                        load_features_fn=load_features) -> list[tuple[str, float]]:
     """对全市场用冻结因子打分,取最新截面降序,全量覆盖写 DiscoveryPick。"""
     panel = load_features_fn(insts, frozen.factors, as_of, lookback)
-    score_df = score_panel(panel, frozen.signs)
+    score_df = score_panel(panel, frozen.signs, frozen.weights)
     section = latest_section(score_df)
     ranked = [(from_qlib_symbol(str(code)), float(sc)) for code, sc in section.items()]
     session.execute(delete(DiscoveryPick).where(DiscoveryPick.as_of == as_of))

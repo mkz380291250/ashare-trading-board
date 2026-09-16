@@ -12,8 +12,8 @@ from app.backtest.factor import factor_report
 RANK_IC_MIN = 0.05
 
 
-def alignment_report(panel, signs, fwd_returns, layers: int = 5) -> dict:
-    score = composite_score(panel, signs)          # 生产同一函数
+def alignment_report(panel, signs, fwd_returns, layers: int = 5, weights=None) -> dict:
+    score = composite_score(panel, signs, weights=weights)   # 生产同一函数
     rep = factor_report(score, fwd_returns, layers=layers)
     lyr = rep["layer_returns"]
     ric = rep["rank_ic_mean"]
@@ -39,7 +39,7 @@ def main():
     df.columns = list(ff.factors) + ["label"]
     df = to_datetime_instrument(df)
     panel = df[list(ff.factors)]
-    rep = alignment_report(panel, ff.signs, df["label"])
+    rep = alignment_report(panel, ff.signs, df["label"], weights=ff.weights)
     print(f"universe={ff.universe} horizon={ff.horizon} "
           f"n_factors={len(ff.factors)}", flush=True)
     print(f"OOS RankIC={rep['rank_ic']:+.4f}  分层收益={[round(x,4) for x in rep['layers']]}",

@@ -47,3 +47,38 @@ def test_composite_score_returns_score_column():
     out = composite_score(panel, {"f1": 1.0})
     assert isinstance(out, pd.DataFrame)
     assert list(out.columns) == ["score"]
+
+
+def test_composite_score_weighted():
+    import pytest
+    idx = _idx(date(2026, 6, 1), ["A", "B", "C"])
+    panel = pd.DataFrame({"f1": [1.0, 2.0, 3.0], "f2": [3.0, 2.0, 1.0]}, index=idx)
+    eq = composite_score(panel, {"f1": 1.0, "f2": 1.0})
+    assert abs(eq["score"]).max() < 1e-9                       # 等权互相抵消
+    w = composite_score(panel, {"f1": 1.0, "f2": 1.0}, weights={"f1": 0.9, "f2": 0.1})
+    assert w.loc[(pd.Timestamp(2026, 6, 1), "C"), "score"] > \
+        w.loc[(pd.Timestamp(2026, 6, 1), "A"), "score"]
+    # 权重全等 ⇒ 与等权完全一致
+    same = composite_score(panel, {"f1": 1.0, "f2": 1.0}, weights={"f1": 0.5, "f2": 0.5})
+    assert same["score"].sub(eq["score"]).abs().max() < 1e-12
+
+
+def test_dedup_by_family_caps_per_family_and_corr():
+    import numpy as np
+    from app.quant.factor_compose import dedup_by_family
+    ranked = ["v1", "v2", "v3", "t1", "q1"]
+    fam = {"v1": "波动", "v2": "波动", "v3": "波动", "t1": "换手", "q1": "质量"}
+    corr = pd.DataFrame(np.eye(5), index=ranked, columns=ranked)
+    corr.loc["t1", "v1"] = corr.loc["v1", "t1"] = 0.75          # t1 与 v1 高相关 → 丢
+    kept = dedup_by_family(ranked, corr, fam, threshold=0.7, family_cap=2)
+    assert kept == ["v1", "v2", "q1"]                           # v3 超族上限,t1 相关被丢
+
+
+def test_ir_weights_clipped_and_normalized():
+    import pytest
+    from app.quant.factor_compose import ir_weights
+    w = ir_weights(["a", "b", "c"], {"a": -3.0, "b": 0.5, "c": 0.1})   # 均值 1.2 → 截断 [0.6, 2.4]
+    assert abs(sum(w.values()) - 1.0) < 1e-5
+    assert w["a"] == pytest.approx(2.4 / (2.4 + 0.6 + 0.6), abs=1e-6)
+    assert w["b"] == w["c"]
+    assert ir_weights([], {}) == {}

@@ -20,3 +20,18 @@ def test_select_dedup_and_signs():
     assert ff.source_report == "factor_mining_2026-06-25"
     assert ff.as_of == "2026-06-25"
     assert ff.metrics_at_freeze == {"rank_ic_mean": 0.07}
+
+
+def test_select_frozen_with_family_and_ir_weights():
+    ranked = ["v1", "v2", "v3", "q1"]
+    rank_ic = {"v1": -0.05, "v2": -0.04, "v3": -0.03, "q1": 0.02}
+    corr = pd.DataFrame([[1, .2, .2, .1], [.2, 1, .2, .1], [.2, .2, 1, .1], [.1, .1, .1, 1]],
+                        index=ranked, columns=ranked, dtype=float)
+    ff = select_frozen(ranked, rank_ic, corr, universe="cyb", horizon=20,
+                       source_report="r", as_of="2026-09-16", metrics={},
+                       family={"v1": "波动", "v2": "波动", "v3": "波动", "q1": "质量"},
+                       family_cap=2, ir_map={"v1": -1.0, "v2": -0.8, "q1": 0.4})
+    assert ff.factors == ["v1", "v2", "q1"]
+    assert abs(sum(ff.weights.values()) - 1.0) < 1e-5
+    assert ff.weights["v1"] > ff.weights["q1"]
+    assert ff.signs == {"v1": -1.0, "v2": -1.0, "q1": 1.0}
