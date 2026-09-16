@@ -100,17 +100,17 @@ def main():
     init_qlib(args.qlib_dir or s.qlib_research_dir)
     from qlib.data import D
 
-    insts = D.list_instruments(D.instruments(args.universe), as_list=True)
+    inst_cfg = D.instruments(args.universe)          # config:动态池按成员窗口取数
     end = D.calendar()[-1]
     feat_start = (pd.Timestamp(args.start) - pd.DateOffset(months=4)).strftime("%Y-%m-%d")
-    px = D.features(insts, ["$close*$factor"], start_time=feat_start, end_time=end)
+    px = D.features(inst_cfg, ["$close*$factor"], start_time=feat_start, end_time=end)
     px.columns = ["adj"]
     ret = px["adj"].unstack(0).pct_change(fill_method=None)
     bench = bench_returns(args.extra_db, args.bench)
     out = {}
     for path in args.frozen.split(","):
         ff = load_frozen(path)
-        df = D.features(insts, [FACTOR_LIBRARY[n] for n in ff.factors],
+        df = D.features(inst_cfg, [FACTOR_LIBRARY[n] for n in ff.factors],
                         start_time=feat_start, end_time=end)
         df.columns = list(ff.factors)
         score = composite_score(to_datetime_instrument(df), ff.signs, ff.weights)["score"].unstack(1)

@@ -41,9 +41,9 @@ def main():
     init_qlib(args.qlib_dir or s.qlib_data_dir)
     from qlib.data import D
     end = D.calendar()[-1]
-    insts = D.list_instruments(D.instruments(args.universe or ff.universe), as_list=True)
+    inst_cfg = D.instruments(args.universe or ff.universe)   # config:动态池按成员窗口取数
     fields = [FACTOR_LIBRARY[n] for n in ff.factors] + [label_expr(ff.horizon)]
-    df = D.features(insts, fields, start_time=args.start, end_time=end)
+    df = D.features(inst_cfg, fields, start_time=args.start, end_time=end)
     df.columns = list(ff.factors) + ["label"]
     df = to_datetime_instrument(df)
     panel = df[list(ff.factors)]

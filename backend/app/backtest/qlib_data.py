@@ -190,3 +190,14 @@ def warm_file_cache(path, chunk: int = 16 << 20, log=None) -> float:
     if log:
         log(f"warm cache {p.name} {p.stat().st_size / 1e9:.1f}GB in {dt:.0f}s")
     return dt
+
+
+def instruments_subset(qlib_dir: str, universe: str, symbols, name: str) -> str:
+    """把 instruments/<universe>.txt 里属于 symbols 的行(保留每行的起止窗口)写成
+    instruments/<name>.txt,返回 name。用于冒烟/抽样时仍让 qlib 按成员窗口取数
+    (D.features 传符号列表会忽略窗口,动态池会变成"历史上所有成员")。"""
+    src = Path(qlib_dir) / "instruments" / f"{universe}.txt"
+    keep = set(symbols)
+    lines = [ln for ln in src.read_text().splitlines() if ln.split("\t")[0] in keep]
+    (Path(qlib_dir) / "instruments" / f"{name}.txt").write_text("\n".join(lines) + "\n")
+    return name

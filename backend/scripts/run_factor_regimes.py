@@ -61,9 +61,13 @@ def main():
     import pandas as pd
 
     end = D.calendar()[-1]
-    insts = D.list_instruments(D.instruments(args.universe), as_list=True)
+    inst_cfg = D.instruments(args.universe)          # 传 config 而非列表:动态池按成员窗口取数
+    insts = D.list_instruments(inst_cfg, as_list=True)
     if args.limit:
+        from app.backtest.qlib_data import instruments_subset
         insts = insts[: args.limit]
+        inst_cfg = D.instruments(instruments_subset(qlib_dir, args.universe, insts,
+                                                    f"{args.universe}_lim{args.limit}"))
     avail = set(available_fields(qlib_dir))
     names, skipped = [], []
     for n in FACTOR_LIBRARY:
@@ -80,13 +84,13 @@ def main():
         for y in range(y0, y1 + 1, args.chunk_years):
             a = max(pd.Timestamp(args.start), pd.Timestamp(f"{y}-01-01"))
             b = min(end, pd.Timestamp(f"{y + args.chunk_years - 1}-12-31"))
-            d = D.features(insts, fields, start_time=a, end_time=b)
+            d = D.features(inst_cfg, fields, start_time=a, end_time=b)
             d.columns = names + ["label"]
             parts.append(d.astype("float32"))
             print(f"  chunk {a.date()}..{b.date()} rows={len(d)}", flush=True)
         df = pd.concat(parts)
     else:
-        df = D.features(insts, fields, start_time=args.start, end_time=end)
+        df = D.features(inst_cfg, fields, start_time=args.start, end_time=end)
         df.columns = names + ["label"]
         df = df.astype("float32")
     df = to_datetime_instrument(df)

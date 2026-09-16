@@ -50,11 +50,11 @@ def freeze(settings, *, universe=None, horizon=None, threshold=0.8,
     ranked = [r["name"] for r in robust]
     rank_ic = {r["name"]: r["rank_ic_oos"] for r in robust}
     ir_map = {r["name"]: r["rank_ic_ir_oos"] for r in robust} if ir_weighted else None
-    insts = D.list_instruments(D.instruments(universe), as_list=True)
+    inst_cfg = D.instruments(universe)               # config:动态池按成员窗口取数
     end = D.calendar()[-1]
     fields = [FACTOR_LIBRARY[n] for n in ranked]
     oos_start = (mining.get("oos_window") or ["2025-01-01"])[0]
-    df = D.features(insts, fields, start_time=oos_start, end_time=end)
+    df = D.features(inst_cfg, fields, start_time=oos_start, end_time=end)
     df.columns = ranked
     df = to_datetime_instrument(df)
     z = pd.DataFrame({n: cs_zscore(df[n]) for n in ranked})

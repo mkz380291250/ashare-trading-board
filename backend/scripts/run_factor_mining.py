@@ -69,17 +69,23 @@ def main():
     from qlib.data import D
 
     end = D.calendar()[-1]
-    insts = D.list_instruments(D.instruments(args.universe),
-                               as_list=True)
+    inst_cfg = D.instruments(args.universe)          # 传 config 而非列表:动态池按成员窗口取数
+    insts = D.list_instruments(inst_cfg, as_list=True)
+    sub = None
     if args.limit and len(insts) > args.limit:
         import random
         random.Random(args.seed).shuffle(insts)
         insts = sorted(insts[: args.limit])
+        sub = f"{args.universe}_s{args.limit}"
         print(f"sampled {len(insts)} insts (seed={args.seed})", flush=True)
     if args.smoke:
         insts = insts[:300]
+        sub = f"{args.universe}_smoke"
         args.is_start, args.split = "2024-01-01", "2024-10-01"
         print(f"SMOKE: {len(insts)} insts", flush=True)
+    if sub:
+        from app.backtest.qlib_data import instruments_subset
+        inst_cfg = D.instruments(instruments_subset(qlib_dir, args.universe, insts, sub))
 
     label = label_expr(args.horizon)
     avail = set(available_fields(qlib_dir))
@@ -90,7 +96,7 @@ def main():
     fields = [FACTOR_LIBRARY[n] for n in names] + [label]
     print(f"computing {len(names)} factors over {len(insts)} insts "
           f"{args.is_start}..{end.date()}", flush=True)
-    df = D.features(insts, fields, start_time=args.is_start, end_time=end)
+    df = D.features(inst_cfg, fields, start_time=args.is_start, end_time=end)
     df.columns = names + ["label"]
     df = to_datetime_instrument(df).astype("float32")
 

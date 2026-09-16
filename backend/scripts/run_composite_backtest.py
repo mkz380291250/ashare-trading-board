@@ -91,15 +91,18 @@ def main():
     end = D.calendar()[-1]
     if args.bt_end:
         end = pd.Timestamp(args.bt_end)
-    insts = D.list_instruments(D.instruments(args.universe), as_list=True)
+    inst_cfg = D.instruments(args.universe)          # config:动态池按成员窗口取数
+    insts = D.list_instruments(inst_cfg, as_list=True)
     bt_start = args.bt_start
     if args.smoke:
+        from app.backtest.qlib_data import instruments_subset
         insts = insts[:300]
+        inst_cfg = D.instruments(instruments_subset(qlib_dir, args.universe, insts, f"{args.universe}_smoke"))
         bt_start = "2025-07-01"
         print(f"SMOKE: {len(insts)} insts, bt_start={bt_start}", flush=True)
 
     fields = [FACTOR_LIBRARY[n] for n in ranked_names] + [label_expr(args.horizon)]
-    df = D.features(insts, fields, start_time=bt_start, end_time=end)
+    df = D.features(inst_cfg, fields, start_time=bt_start, end_time=end)
     df.columns = ranked_names + ["label"]
     df = to_datetime_instrument(df)
     label = df["label"]
