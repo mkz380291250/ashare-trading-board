@@ -31,7 +31,7 @@ def _latest_mining(reports_dir: Path) -> dict:
 
 def freeze(settings, *, universe=None, horizon=None, threshold=0.8,
            report_path=None, qlib_dir=None, regimes_path=None, family_cap=0,
-           ir_weighted=False, out_path=None) -> FrozenFactors:
+           ir_weighted=False, out_path=None, exclude=()) -> FrozenFactors:
     universe = universe or settings.discovery_universe
     horizon = resolve_horizon(horizon, settings)
     init_qlib(qlib_dir or settings.qlib_data_dir)
@@ -46,7 +46,7 @@ def freeze(settings, *, universe=None, horizon=None, threshold=0.8,
         reg = json.loads(Path(regimes_path).read_text())
         ok = {f["name"] for f in reg["factors"] if f.get("robust_all")}
         robust = [r for r in robust if r["name"] in ok]
-    robust = [r for r in robust if r["name"] not in RESEARCH_ONLY]
+    robust = [r for r in robust if r["name"] not in RESEARCH_ONLY and r["name"] not in exclude]
     ranked = [r["name"] for r in robust]
     rank_ic = {r["name"]: r["rank_ic_oos"] for r in robust}
     ir_map = {r["name"]: r["rank_ic_ir_oos"] for r in robust} if ir_weighted else None
@@ -85,6 +85,8 @@ def build_parser():
                    help=">0 则同族最多保留 N 个(用 FACTOR_FAMILY);0=只按相关去重(旧行为)")
     p.add_argument("--threshold", type=float, default=0.8, help="相关去重阈值")
     p.add_argument("--ir-weighted", action="store_true", help="按 OOS |IR| 截断加权(否则等权)")
+    p.add_argument("--exclude", default="",
+                   help="逗号分隔的因子名,从候选里剔除(如夜链库暂无 PIT 字段的财务因子)")
     p.add_argument("--out", default="",
                    help="写到该路径(候选产物,不覆盖生产 frozen_composite.json)")
     return p
@@ -97,7 +99,8 @@ def main():
                 report_path=args.report or None, qlib_dir=args.qlib_dir or None,
                 regimes_path=args.regimes or None, family_cap=args.family_cap,
                 threshold=args.threshold, ir_weighted=args.ir_weighted,
-                out_path=args.out or None)
+                out_path=args.out or None,
+                exclude=tuple(x for x in args.exclude.split(",") if x))
     print(f"冻结 {len(ff.factors)} 个因子(universe={ff.universe} horizon={ff.horizon}) "
           f"-> {args.out or frozen_path(s)}", flush=True)
     for f in ff.factors:
