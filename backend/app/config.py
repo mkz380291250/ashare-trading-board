@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     qlib_export_start: str = "2021-01-01"  # 每晚 qlib 重建的起始日;库里 2010 年起都有(2026-09-15
                                            # tushare 到期前追溯),但全导会让夜链重建慢 3 倍,
                                            # 做长周期回测/挖掘时再临时改早
+    qlib_research_dir: str = "./data/qlib_cn_full"  # 研究库(2010 起 + PIT 财务/资金流字段),
+                                           # 由 build_qlib_data.py --start 2010-01-01 --extra 手动重建,不进夜链
     discovery_universe: str = "cyb"        # 生产选股宇宙(2026-07-03 全市场→创业板,
                                            # 同窗回测年化28.9%→42.3%、回撤-32%→-26%);
                                            # 挖掘/冻结默认跟随此值,防 run_remine 静默切回

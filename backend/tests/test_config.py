@@ -23,3 +23,8 @@ def test_research_config_defaults():
     s = Settings()
     assert s.research_llm == "local"
     assert s.research_max_per_min == 50
+
+
+def test_qlib_research_dir_default():
+    from app.config import Settings
+    assert Settings(_env_file=None).qlib_research_dir == "./data/qlib_cn_full"
