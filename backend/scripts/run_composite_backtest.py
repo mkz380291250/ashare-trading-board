@@ -58,23 +58,39 @@ def main():
                    help="显式指定 factor_mining_*.json 路径;缺省取目录最新")
     p.add_argument("--smoke", action="store_true")
     p.add_argument("--no-save", action="store_true")
+    p.add_argument("--qlib-dir", default="", help="缺省生产库;研究库传 data/qlib_cn_full")
+    p.add_argument("--frozen", default="",
+                   help="直接回测某 frozen json(factors/signs/weights),不再从 mining 报告选因子")
+    p.add_argument("--bt-end", default="", help="回测截止日(缺省日历最后一天)")
     args = p.parse_args()
 
     s = get_settings()
-    init_qlib(s.qlib_data_dir)
+    qlib_dir = args.qlib_dir or s.qlib_data_dir
+    init_qlib(qlib_dir)
     from qlib.data import D
 
-    reports_dir = Path(s.qlib_data_dir).resolve().parent / "reports"
-    if args.report:
-        mining = json.loads(Path(args.report).read_text())
+    reports_dir = Path(qlib_dir).resolve().parent / "reports"
+    frozen_ff = None
+    if args.frozen:
+        from app.factors.frozen import load_frozen
+        frozen_ff = load_frozen(args.frozen)
+        mining = {"as_of": frozen_ff.source_report}
+        ranked_names = list(frozen_ff.factors)
+        signs = dict(frozen_ff.signs)
+        print(f"载入 frozen {args.frozen}:{len(ranked_names)} 因子", flush=True)
     else:
-        mining = _latest_mining_report(reports_dir)
-    robust = mining["robust_factors"]  # 已按 |IR| 降序
-    ranked_names = [r["name"] for r in robust]
-    signs = {r["name"]: sign_correct(r["rank_ic_oos"]) for r in robust}
-    print(f"载入稳健因子 {len(ranked_names)} 个(来自 {mining['as_of']})", flush=True)
+        if args.report:
+            mining = json.loads(Path(args.report).read_text())
+        else:
+            mining = _latest_mining_report(reports_dir)
+        robust = mining["robust_factors"]  # 已按 |IR| 降序
+        ranked_names = [r["name"] for r in robust]
+        signs = {r["name"]: sign_correct(r["rank_ic_oos"]) for r in robust}
+        print(f"载入稳健因子 {len(ranked_names)} 个(来自 {mining['as_of']})", flush=True)
 
     end = D.calendar()[-1]
+    if args.bt_end:
+        end = pd.Timestamp(args.bt_end)
     insts = D.list_instruments(D.instruments(args.universe), as_list=True)
     bt_start = args.bt_start
     if args.smoke:
@@ -89,16 +105,21 @@ def main():
     label = df["label"]
     panel = df[ranked_names]
 
-    # 相关性去重(按日截面 z-score 后求整体相关)
-    z = pd.DataFrame({n: cs_zscore(panel[n]) for n in ranked_names})
-    corr = z.corr()
-    kept = dedup_by_correlation(ranked_names, corr, threshold=args.corr_threshold)
-    print(f"相关去重(|r|>={args.corr_threshold}): {len(ranked_names)} -> {len(kept)} 个独立因子",
-          flush=True)
-    print(f"  保留: {kept}", flush=True)
+    weights = None
+    if frozen_ff is not None:
+        kept = ranked_names
+        weights = dict(frozen_ff.weights)
+    else:
+        # 相关性去重(按日截面 z-score 后求整体相关)
+        z = pd.DataFrame({n: cs_zscore(panel[n]) for n in ranked_names})
+        corr = z.corr()
+        kept = dedup_by_correlation(ranked_names, corr, threshold=args.corr_threshold)
+        print(f"相关去重(|r|>={args.corr_threshold}): {len(ranked_names)} -> {len(kept)} 个独立因子",
+              flush=True)
+        print(f"  保留: {kept}", flush=True)
 
-    # 等权合成 + IC 评估
-    score = composite_score(panel[kept], {k: signs[k] for k in kept})
+    # 合成(frozen 带权重则加权) + IC 评估
+    score = composite_score(panel[kept], {k: signs[k] for k in kept}, weights=weights)
     rep = factor_report(score, label)
     print(f"复合因子 RankIC={rep['rank_ic_mean']:+.4f} IR={rep['rank_ic_ir']:+.2f} "
           f"分层高-低={rep['layer_returns'][-1] - rep['layer_returns'][0]:+.4f}", flush=True)
@@ -129,6 +150,7 @@ def main():
         "signs": {k: signs[k] for k in kept},
         "corr_threshold": args.corr_threshold, "topk": args.topk, "n_drop": args.n_drop,
         "rebalance": args.rebalance, "hold_thresh": args.hold_thresh,
+        "weights": weights, "frozen": args.frozen or None,
         "composite_factor_report": rep,
         "backtest_with_cost": bt_cost, "backtest_no_cost": bt_free,
         "cost_drag_cum": drag,
@@ -136,6 +158,8 @@ def main():
                   "非完全独立第三方持出。",
     }
     tag = "smoke" if args.smoke else bt_end.isoformat()
+    if args.frozen:
+        tag += "_" + Path(args.frozen).stem
     (reports_dir / f"composite_backtest_{tag}.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2))
     (reports_dir / f"composite_backtest_{tag}.md").write_text(_md(report))

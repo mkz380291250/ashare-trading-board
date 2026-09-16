@@ -22,20 +22,28 @@ def alignment_report(panel, signs, fwd_returns, layers: int = 5, weights=None) -
 
 
 def main():
+    import argparse
     from app.config import get_settings
     from app.backtest.qlib_data import init_qlib
     from app.factors.frozen import load_frozen
     from app.quant.factor_mine import FACTOR_LIBRARY, label_expr, to_datetime_instrument
     from scripts.freeze_factors import frozen_path
 
+    p = argparse.ArgumentParser()
+    p.add_argument("--frozen", default="", help="缺省生产 frozen_composite.json")
+    p.add_argument("--qlib-dir", default="", help="缺省生产库")
+    p.add_argument("--universe", default="", help="覆盖 frozen 里的宇宙(研究库用 cyb_dyn)")
+    p.add_argument("--start", default="2025-01-01", help="验证窗起点")
+    args = p.parse_args()
+
     s = get_settings()
-    ff = load_frozen(frozen_path(s))
-    init_qlib(s.qlib_data_dir)
+    ff = load_frozen(args.frozen or frozen_path(s))
+    init_qlib(args.qlib_dir or s.qlib_data_dir)
     from qlib.data import D
     end = D.calendar()[-1]
-    insts = D.list_instruments(D.instruments(ff.universe), as_list=True)
+    insts = D.list_instruments(D.instruments(args.universe or ff.universe), as_list=True)
     fields = [FACTOR_LIBRARY[n] for n in ff.factors] + [label_expr(ff.horizon)]
-    df = D.features(insts, fields, start_time="2025-01-01", end_time=end)
+    df = D.features(insts, fields, start_time=args.start, end_time=end)
     df.columns = list(ff.factors) + ["label"]
     df = to_datetime_instrument(df)
     panel = df[list(ff.factors)]

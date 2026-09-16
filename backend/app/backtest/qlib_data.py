@@ -73,12 +73,14 @@ def export_market_csvs_full(session, codes, start, end, out_dir: str,
 
 
 def export_market_csvs_bulk(db_path: str, start, end, out_dir: str,
-                            extra_fn=None, codes=None) -> int:
+                            extra_fn=None, codes=None, chunksize: int = 500_000) -> int:
     """与 export_market_csvs_full 同产物,但一次顺序扫全表再按票分组(研究库 2010 起
     全导用):逐票查询在冷缓存的机械盘上是随机 4K 读(~60 IOPS,几十小时),
     顺序扫 + 内存分组只需几分钟。`+trade_date` 禁用索引强制顺序扫。
+    内存:逐 chunk 转 float32/datetime64 后按票累积(全市场 2010 起约 2 GB),不整表 concat。
     db_path: sqlite 文件路径;codes: 只导这些票(None=全部)。返回写出只数。"""
     import sqlite3
+    import numpy as np
     import pandas as pd
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -86,30 +88,28 @@ def export_market_csvs_bulk(db_path: str, start, end, out_dir: str,
     q = ("select code, trade_date as date, open, high, low, close, vol as volume, "
          "adj_factor as factor, turnover_rate, volume_ratio, circ_mv, total_mv, pe, pb, amount "
          "from daily_quotes where +trade_date >= ? and +trade_date <= ?")
-    parts = []
-    for chunk in pd.read_sql_query(q, con, params=(start.isoformat(), end.isoformat()),
-                                   chunksize=1_000_000):
-        chunk["code"] = chunk["code"].astype("category")
-        parts.append(chunk)
-    con.close()
-    if not parts:
-        return 0
-    df = pd.concat(parts, ignore_index=True)
-    del parts
-    df = df.sort_values(["code", "date"], kind="stable")
     want = set(codes) if codes else None
+    buckets: dict[str, list] = {}
+    num_cols = [c for c in _FULL_COLS if c != "date"]
+    for chunk in pd.read_sql_query(q, con, params=(start.isoformat(), end.isoformat()),
+                                   chunksize=chunksize):
+        chunk["date"] = pd.to_datetime(chunk["date"])
+        for c in num_cols:
+            chunk[c] = pd.to_numeric(chunk[c], errors="coerce").astype("float32")
+        for code, g in chunk.groupby("code", sort=False):
+            if want is not None and code not in want:
+                continue
+            buckets.setdefault(str(code), []).append(g.drop(columns=["code"]))
+    con.close()
     n = 0
-    for code, g in df.groupby("code", sort=False, observed=True):
-        code = str(code)
-        if want is not None and code not in want:
-            continue
-        g = g.drop(columns=["code"]).reset_index(drop=True)[_FULL_COLS]
+    for code in sorted(buckets):
+        g = pd.concat(buckets.pop(code), ignore_index=True)
+        g = g.sort_values("date", kind="stable").reset_index(drop=True)[_FULL_COLS]
         if extra_fn is not None:
-            dates = pd.DatetimeIndex(pd.to_datetime(g["date"]))
-            extra = extra_fn(code, dates)
+            extra = extra_fn(code, pd.DatetimeIndex(g["date"]))
             if extra is not None and len(extra):
                 g = pd.concat([g, extra.reset_index(drop=True)], axis=1)
-        g.to_csv(out / f"{to_qlib_symbol(code)}.csv", index=False)
+        g.to_csv(out / f"{to_qlib_symbol(code)}.csv", index=False, date_format="%Y-%m-%d")
         n += 1
     return n
 
