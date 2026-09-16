@@ -31,11 +31,14 @@ def bench_returns(db_path: str, code: str) -> pd.Series:
     return s.pct_change()
 
 
-def run(score: pd.DataFrame, ret: pd.DataFrame, bench: pd.Series, start: str, topk: int) -> dict:
-    """score/ret: datetime x instrument。返回指标 dict。"""
+def run(score: pd.DataFrame, ret: pd.DataFrame, bench: pd.Series, start: str, topk: int,
+        n_drop: int = 0, buffer: int = 0) -> dict:
+    """score/ret: datetime x instrument。n_drop=0 → 每周整体换成 topK(全换);
+    n_drop>0 → 生产式 TopkDropout:持仓跌出 topK+buffer 才卖、每周最多换出 n_drop 只,
+    再从未持有的最高分补齐到 K。返回指标 dict(含周均换手)。"""
     dates = [d for d in ret.index if d >= pd.Timestamp(start)]
-    hold, prev_hold, week, turn = [], set(), None, 0.0
-    daily = {}
+    hold, week, turn = [], None, 0.0
+    daily, turns = {}, []
     for d in dates:
         wk = d.isocalendar()[:2]
         if wk != week:
@@ -43,10 +46,26 @@ def run(score: pd.DataFrame, ret: pd.DataFrame, bench: pd.Series, start: str, to
             prev = score.index[score.index < d]
             if len(prev):
                 s = score.loc[prev[-1]].dropna()
-                s = s[s.index.isin(ret.columns)]
-                new = list(s.sort_values(ascending=False).head(topk).index)
-                turn = len(set(new) - prev_hold) / max(topk, 1)
-                prev_hold, hold = set(new), new
+                s = s[s.index.isin(ret.columns)].sort_values(ascending=False)
+                ranked = list(s.index)
+                if n_drop <= 0 or not hold:
+                    new = ranked[:topk]
+                else:
+                    keep_set = set(ranked[: topk + buffer])
+                    rank_of = {c: i for i, c in enumerate(ranked)}
+                    # 已不在池/无分数的持仓视为最差,必须卖
+                    out = sorted([c for c in hold if c not in keep_set],
+                                 key=lambda c: -rank_of.get(c, 10 ** 9))
+                    sells = set(out[:n_drop])
+                    new = [c for c in hold if c not in sells]
+                    for c in ranked:
+                        if len(new) >= topk:
+                            break
+                        if c not in new:
+                            new.append(c)
+                turn = len(set(new) - set(hold)) / max(topk, 1)
+                turns.append(turn)
+                hold = new
         r = ret.loc[d, hold].dropna() if hold else pd.Series(dtype=float)
         pr = float(r.mean()) if len(r) else 0.0
         if turn:
@@ -75,6 +94,7 @@ def run(score: pd.DataFrame, ret: pd.DataFrame, bench: pd.Series, start: str, to
         "pos_year_share": round(sum(v > 0 for v in by_year.values()) / len(by_year), 3),
         "excess_pos_year_share": round(sum(v > 0 for v in ex_year.values()) / len(ex_year), 3),
         "monthly_win_vs_bench": round(float((monthly > bm.reindex(monthly.index).fillna(0)).mean()), 3),
+        "weekly_turnover": round(float(np.mean(turns)) if turns else 0.0, 3),
         "days": int(len(s)),
     }
 
@@ -87,6 +107,8 @@ def main():
     p.add_argument("--start", default="2022-01-01")
     p.add_argument("--bench", default="399006.SZ")
     p.add_argument("--topk", type=int, default=15)
+    p.add_argument("--n-drop", type=int, default=0, help=">0 生产式 TopkDropout(每周最多换出 N 只)")
+    p.add_argument("--buffer", type=int, default=0, help="持仓跌出 topK+buffer 才卖")
     p.add_argument("--extra-db", default="data/tushare_extra.db")
     p.add_argument("--json", default="")
     args = p.parse_args()
@@ -114,18 +136,20 @@ def main():
                         start_time=feat_start, end_time=end)
         df.columns = list(ff.factors)
         score = composite_score(to_datetime_instrument(df), ff.signs, ff.weights)["score"].unstack(1)
-        m = run(score, ret, bench, args.start, args.topk)
+        m = run(score, ret, bench, args.start, args.topk, n_drop=args.n_drop, buffer=args.buffer)
         name = Path(path).stem
         out[name] = m
-        print(f"{name:26s} @{args.universe:14s} {args.start}~ top{args.topk} vs {args.bench}: "
+        mode = f"drop{args.n_drop}buf{args.buffer}" if args.n_drop else "full"
+        print(f"{name:26s} @{args.universe:14s} {args.start}~ top{args.topk} {mode} vs {args.bench}: "
               f"年化 {m['ann']:+.1%} 回撤 {m['mdd']:.1%} 超额IR {m['excess_ir']:+.2f} Calmar {m['calmar']:.2f} "
               f"累计 {m['cum']:+.1%}(基准 {m['bench_cum']:+.1%}) 最差年 {m['worst_year']:+.1%} "
-              f"正年 {m['pos_year_share']:.0%} 超额正年 {m['excess_pos_year_share']:.0%} 月胜率 {m['monthly_win_vs_bench']:.0%}",
+              f"正年 {m['pos_year_share']:.0%} 超额正年 {m['excess_pos_year_share']:.0%} 月胜率 {m['monthly_win_vs_bench']:.0%} 周换手 {m['weekly_turnover']:.0%}",
               flush=True)
         print(f"    逐年 {m['years']}", flush=True)
     if args.json:
         Path(args.json).write_text(json.dumps({"universe": args.universe, "start": args.start,
                                                "bench": args.bench, "topk": args.topk,
+                                               "n_drop": args.n_drop, "buffer": args.buffer,
                                                "results": out}, ensure_ascii=False, indent=1))
     print("SIMPLE_BT_DONE", flush=True)
 
