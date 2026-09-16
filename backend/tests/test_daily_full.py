@@ -58,3 +58,43 @@ def test_retry_on_usage_limit_gives_up_after_retries():
     with pytest.raises(UsageLimitError):
         _retry_on_usage_limit(always_limited, retries=2, wait_s=1,
                               sleep=lambda s: None)
+
+
+def test_step_financials_runs_only_on_configured_weekday(monkeypatch):
+    import scripts.daily_full as df
+    from datetime import date as _date
+    calls = []
+    monkeypatch.setattr(df.subprocess, "run", lambda *a, **k: calls.append(a[0]))
+
+    class _S:
+        financials_weekday = 4
+    monkeypatch.setattr(df, "get_settings", lambda: _S())
+
+    class _D(_date):
+        @classmethod
+        def today(cls):
+            return _date(2026, 9, 18)          # 周五
+    monkeypatch.setattr(df, "date", _D)
+    df.step_financials()
+    assert calls and calls[0][1].endswith("update_financials_baostock.py")
+
+    class _D2(_date):
+        @classmethod
+        def today(cls):
+            return _date(2026, 9, 17)          # 周四
+    monkeypatch.setattr(df, "date", _D2)
+    calls.clear()
+    df.step_financials()
+    assert calls == []
+    _S.financials_weekday = -1
+    monkeypatch.setattr(df, "date", _D)
+    df.step_financials()
+    assert calls == []
+
+
+def test_step_qlib_passes_extra_flags(monkeypatch):
+    import scripts.daily_full as df
+    calls = []
+    monkeypatch.setattr(df.subprocess, "run", lambda *a, **k: calls.append(a[0]))
+    df.step_qlib()
+    assert "--extra" in calls[0] and "--no-moneyflow" in calls[0]

@@ -45,10 +45,22 @@ def step_quotes() -> None:
                    cwd=ROOT, check=True)
 
 
+def step_financials() -> None:
+    """每周一次(settings.financials_weekday)用 baostock 季报续接 ts_income,
+    让 PIT 财务字段(rev_ttm 等,sp_ttm 因子依赖)在生产库里持续可算。-1 关闭。"""
+    s = get_settings()
+    if s.financials_weekday < 0 or date.today().weekday() != s.financials_weekday:
+        print(f"FINANCIALS_SKIP 非续接日 {date.today()}(weekday={date.today().weekday()})", flush=True)
+        return
+    subprocess.run([PY, str(ROOT / "scripts" / "update_financials_baostock.py")],
+                   cwd=ROOT, check=True)
+
+
 def step_qlib() -> None:
     s = get_settings()
     subprocess.run([PY, str(ROOT / "scripts" / "build_qlib_data.py"),
-                    "--qlib-dir", s.qlib_data_dir], cwd=ROOT, check=True)
+                    "--qlib-dir", s.qlib_data_dir, "--extra", "--no-moneyflow"],
+                   cwd=ROOT, check=True)
 
 
 def step_health() -> None:
@@ -273,7 +285,8 @@ def run_all() -> bool:
     import json
     from datetime import datetime
     from app.db.models import SchedulerRun
-    steps = (("quotes", step_quotes), ("qlib", step_qlib), ("health", step_health),
+    steps = (("quotes", step_quotes), ("financials", step_financials),
+             ("qlib", step_qlib), ("health", step_health),
              ("tracklist", step_tracklist),
              ("select", step_select), ("rebalance", step_rebalance), ("mark", step_mark),
              ("attribution", step_attribution), ("policy", step_policy))

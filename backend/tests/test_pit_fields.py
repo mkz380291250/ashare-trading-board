@@ -122,3 +122,19 @@ def test_pitfields_missing_code_gives_nan_columns(tmp_path):
     # dps_ttm 无分红 → 0;其余全 NaN
     assert (out["dps_ttm"] == 0.0).all()
     assert out.drop(columns=["dps_ttm"]).isna().all().all()
+
+
+def test_pitfields_moneyflow_off_skips_table(tmp_path):
+    import sqlite3
+    db = tmp_path / "y.db"
+    con = sqlite3.connect(db)
+    con.execute("create table ts_income (ts_code,ann_date,end_date,revenue,n_income_attr_p)")
+    con.execute("insert into ts_income values ('300750.SZ','20250315','20241231',100.0,10.0)")
+    # 故意不建 ts_moneyflow 之外的表:moneyflow=False 时不应触碰资金流表;其余缺表 → NaN
+    con.commit()
+    con.close()
+    pit = PitFields(str(db), moneyflow=False)
+    dates = pd.to_datetime(["2025-03-17", "2025-03-18"])
+    out = pit.for_code("300750.SZ", dates)
+    assert out["mf_lg_net"].isna().all()
+    assert out.loc["2025-03-17", "ann_age"] == 0

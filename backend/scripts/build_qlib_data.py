@@ -22,6 +22,8 @@ def main():
     p.add_argument("--extra", action="store_true",
                    help="附加 PIT 财务/分红/资金流字段(读 data/tushare_extra.db)")
     p.add_argument("--extra-db", default="./data/tushare_extra.db")
+    p.add_argument("--no-moneyflow", action="store_true",
+                   help="--extra 时跳过资金流表(夜链用;资金流只做研究且冷读极慢)")
     p.add_argument("--bulk", action="store_true",
                    help="顺序扫全表再分组导出(研究库全导用;--start 给了默认开)")
     args = p.parse_args()
@@ -38,7 +40,7 @@ def main():
     pit = None
     if args.extra:
         from app.quant.pit_fields import PitFields
-        pit = PitFields(args.extra_db)
+        pit = PitFields(args.extra_db, moneyflow=not args.no_moneyflow)
         extra_fn = pit.for_code
     bulk = args.bulk or bool(args.start)
     if bulk:

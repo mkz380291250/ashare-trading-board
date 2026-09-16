@@ -28,3 +28,8 @@ def test_research_config_defaults():
 def test_qlib_research_dir_default():
     from app.config import Settings
     assert Settings(_env_file=None).qlib_research_dir == "./data/qlib_cn_full"
+
+
+def test_financials_weekday_default():
+    from app.config import Settings
+    assert Settings(_env_file=None).financials_weekday == 4

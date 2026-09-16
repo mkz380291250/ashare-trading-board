@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     qlib_export_start: str = "2021-01-01"  # 每晚 qlib 重建的起始日;库里 2010 年起都有(2026-09-15
                                            # tushare 到期前追溯),但全导会让夜链重建慢 3 倍,
                                            # 做长周期回测/挖掘时再临时改早
+    financials_weekday: int = 4            # 每周几(0=周一)用 baostock 季报续接财务(ts_income),
+                                           # 夜链 financials 步;-1=关闭。tushare 到期后 sp_ttm 等因子靠它
     qlib_research_dir: str = "./data/qlib_cn_full"  # 研究库(2010 起 + PIT 财务/资金流字段),
                                            # 由 build_qlib_data.py --start 2010-01-01 --extra 手动重建,不进夜链
     discovery_universe: str = "cyb"        # 生产选股宇宙(2026-07-03 全市场→创业板,

@@ -162,6 +162,7 @@ def check_qlib(session, rep: Report, last: date | None, sample: int):
     for name in ("all", s.discovery_universe):
         if inst.get(name, 0) == 0:
             rep.fail("qlib.instruments", f"instruments/{name}.txt 为空或缺失")
+    check_frozen_fields(rep, str(qdir))
 
     if not last:
         return
@@ -208,6 +209,26 @@ def check_qlib(session, rep: Report, last: date | None, sample: int):
         rep.fail("qlib.features", f"复权价与 DB 不一致 {len(bad)} 只: {bad[:3]}")
     if not missing and not bad:
         rep.ok("qlib.features", f"抽样 {len(picked)} 只 {last} 复权价与 DB 一致")
+
+
+def check_frozen_fields(rep: Report, qlib_dir: str, frozen_path=None) -> None:
+    """生产 frozen 因子引用的 $字段 必须都在 qlib 库里(PIT 财务字段靠 --extra 导出)。"""
+    from app.backtest.qlib_data import available_fields
+    from app.factors.frozen import load_frozen
+    from app.quant.factor_mine import required_fields
+    p = Path(frozen_path) if frozen_path else Path(qlib_dir).resolve().parent / "factors" / "frozen_composite.json"
+    if not p.exists():
+        rep.warn("qlib.frozen_fields", f"{p} 不存在(未冻结因子)")
+        return
+    ff = load_frozen(p)
+    need = set().union(*(required_fields(n) for n in ff.factors)) if ff.factors else set()
+    avail = set(available_fields(qlib_dir))
+    missing = sorted(need - avail)
+    if missing:
+        rep.fail("qlib.frozen_fields", f"frozen {len(ff.factors)} 因子需要字段 {missing} 但 qlib 库缺失"
+                 f"(build_qlib_data 需 --extra)")
+    else:
+        rep.ok("qlib.frozen_fields", f"frozen {len(ff.factors)} 因子所需 {len(need)} 个字段齐全")
 
 
 def main():

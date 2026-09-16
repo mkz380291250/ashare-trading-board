@@ -216,9 +216,11 @@ def moneyflow_daily(mf: pd.DataFrame, dates: pd.DatetimeIndex) -> pd.DataFrame:
 class PitFields:
     """按票读 tushare_extra.db 并产出 PIT 日频附加列。"""
 
-    def __init__(self, db_path: str):
+    def __init__(self, db_path: str, moneyflow: bool = True):
+        """moneyflow=False 跳过 1400 万行的资金流表(夜链用:研究专用字段,且冷读极慢)。"""
         self.con = sqlite3.connect(db_path)
         self.con.execute("PRAGMA query_only=1")
+        self.moneyflow = moneyflow
         self.missing = 0
 
     def _q(self, sql, code):
@@ -239,7 +241,7 @@ class PitFields:
         div = self._q("select div_proc,ex_date,cash_div_tax from ts_dividend where ts_code=?", code)
         mf = self._q("select trade_date,buy_sm_amount,sell_sm_amount,buy_lg_amount,sell_lg_amount,"
                      "buy_elg_amount,sell_elg_amount,net_mf_amount from ts_moneyflow where ts_code=?",
-                     code)
+                     code) if self.moneyflow else pd.DataFrame()
         if inc.empty and fi.empty:
             self.missing += 1
         dates = pd.DatetimeIndex(dates)
