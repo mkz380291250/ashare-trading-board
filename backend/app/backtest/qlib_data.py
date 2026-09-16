@@ -173,3 +173,20 @@ def available_fields(qlib_dir: str) -> list[str]:
         if d.is_dir():
             return sorted(f.name.split(".")[0] for f in d.iterdir() if f.name.endswith(".day.bin"))
     return []
+
+
+def warm_file_cache(path, chunk: int = 16 << 20, log=None) -> float:
+    """顺序读一遍文件把它灌进页缓存(机械盘上 sqlite 随机 4K 读 ~60 IOPS,冷缓存时逐票
+    导出会退化到几十小时;顺序读 3.4GB 只要 1~3 分钟)。返回耗时秒;文件不存在返回 0。"""
+    import time
+    p = Path(path)
+    if not p.exists():
+        return 0.0
+    t0 = time.time()
+    with open(p, "rb", buffering=0) as f:
+        while f.read(chunk):
+            pass
+    dt = time.time() - t0
+    if log:
+        log(f"warm cache {p.name} {p.stat().st_size / 1e9:.1f}GB in {dt:.0f}s")
+    return dt

@@ -9,7 +9,7 @@ from app.config import get_settings
 from app.db.database import make_engine, make_session_factory
 from app.db.models import DailyQuote
 from app.backtest.qlib_data import (export_market_csvs_full, export_market_csvs_bulk,
-                                    export_csi300_csv, build_bin)
+                                    export_csi300_csv, build_bin, warm_file_cache)
 
 
 def main():
@@ -52,6 +52,10 @@ def main():
         print(f"exporting (bulk) {start}..{end} extra={args.extra} limit={args.limit}", flush=True)
         n = export_market_csvs_bulk(db_path, start, end, args.csv_dir, extra_fn=extra_fn, codes=codes)
     else:
+        # 逐票查询前先顺序预热页缓存(否则机械盘冷缓存下 distinct/逐票读会卡几十分钟到几小时)
+        warm_file_cache(engine.url.database, log=lambda m: print(m, flush=True))
+        if extra_fn is not None:
+            warm_file_cache(args.extra_db, log=lambda m: print(m, flush=True))
         codes = sorted({c for c in session.scalars(select(distinct(DailyQuote.code))).all()})
         if args.limit:
             codes = codes[: args.limit]

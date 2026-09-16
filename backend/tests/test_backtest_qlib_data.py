@@ -78,3 +78,13 @@ def test_export_bulk_matches_per_code_export(tmp_path):
         assert list(x.columns) == list(y.columns)
         assert len(x) == len(y) == 2                       # 2024-12-31 被 start 过滤
         pd.testing.assert_frame_equal(x, y, check_dtype=False)
+
+
+def test_warm_file_cache_reads_whole_file(tmp_path):
+    from app.backtest.qlib_data import warm_file_cache
+    f = tmp_path / "x.bin"
+    f.write_bytes(b"\x01" * (3 << 20))
+    msgs = []
+    assert warm_file_cache(f, chunk=1 << 20, log=msgs.append) >= 0.0
+    assert msgs and "x.bin" in msgs[0]
+    assert warm_file_cache(tmp_path / "nope.bin") == 0.0
