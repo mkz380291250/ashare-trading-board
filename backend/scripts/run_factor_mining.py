@@ -1,8 +1,10 @@
 """因子挖掘 + 有效性验证(双窗稳健检验)。
 
 用法:
-  python scripts/run_factor_mining.py                  # 全量
+  python scripts/run_factor_mining.py                  # 全量(生产库 2021 起,IS 2022~24 / OOS 2025~)
   python scripts/run_factor_mining.py --smoke          # 冒烟(小池短窗)
+  python scripts/run_factor_mining.py --qlib-dir data/qlib_cn_full --universe cyb_dyn
+                                                        # 研究库长窗(IS 2011~21 / OOS 2022~),报告带 _full
 
 产出:data/reports/factor_mining_<asof>.{json,md}
 """
@@ -15,11 +17,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.config import get_settings, resolve_horizon
-from app.backtest.qlib_data import init_qlib
+from app.backtest.qlib_data import init_qlib, available_fields
 from app.backtest.factor import factor_report
 from app.quant.factor_mine import (
     FACTOR_LIBRARY, STYLE_FACTORS, FUNDAMENTAL_FACTORS, FLOW_FACTORS,
-    label_expr, to_datetime_instrument, rank_by_abs_ir, is_robust)
+    label_expr, to_datetime_instrument, rank_by_abs_ir, is_robust, required_fields)
 
 NOVEL = {"sharpe20", "sharpe60", "corr_rv10", "intra_ret", "intra_range",
          "intra_pos", "gap", "mean_intra20", "ma_dist20", "ma_dist60",
@@ -43,6 +45,10 @@ def build_parser():
     p.add_argument("--ic-min", type=float, default=0.02)
     p.add_argument("--ir-min", type=float, default=0.3)
     p.add_argument("--smoke", action="store_true")
+    p.add_argument("--qlib-dir", default="",
+                   help="缺省 settings.qlib_data_dir;研究库传 data/qlib_cn_full(自动长窗)")
+    p.add_argument("--long", action="store_true",
+                   help="强制长窗 IS 2011-01-04 / split 2022-01-01")
     return p
 
 
@@ -53,7 +59,11 @@ def main():
     if args.universe is None:
         args.universe = s.discovery_universe
     args.horizon = resolve_horizon(args.horizon, s)
-    init_qlib(s.qlib_data_dir)
+    qlib_dir = args.qlib_dir or s.qlib_data_dir
+    is_full = bool(args.qlib_dir) and "full" in args.qlib_dir
+    if args.long or is_full:
+        args.is_start, args.split = "2011-01-04", "2022-01-01"
+    init_qlib(qlib_dir)
     from qlib.data import D
 
     end = D.calendar()[-1]
@@ -65,13 +75,17 @@ def main():
         print(f"SMOKE: {len(insts)} insts", flush=True)
 
     label = label_expr(args.horizon)
-    names = list(FACTOR_LIBRARY)
+    avail = set(available_fields(qlib_dir))
+    names = [n for n in FACTOR_LIBRARY if required_fields(n) <= avail]
+    skipped = [n for n in FACTOR_LIBRARY if n not in names]
+    if skipped:
+        print(f"skip (missing fields): {skipped}", flush=True)
     fields = [FACTOR_LIBRARY[n] for n in names] + [label]
     print(f"computing {len(names)} factors over {len(insts)} insts "
           f"{args.is_start}..{end.date()}", flush=True)
     df = D.features(insts, fields, start_time=args.is_start, end_time=end)
     df.columns = names + ["label"]
-    df = to_datetime_instrument(df)
+    df = to_datetime_instrument(df).astype("float32")
 
     import pandas as pd
     dts = df.index.get_level_values("datetime")
@@ -119,10 +133,13 @@ def main():
         "thresholds": {"ic_min": args.ic_min, "ir_min": args.ir_min},
         "n_factors": len(results), "n_robust": len(robust),
         "robust_factors": robust, "all_factors": ranked,
+        "skipped": skipped, "qlib_dir": qlib_dir, "n_insts": len(insts),
     }
-    rep_dir = Path(s.qlib_data_dir).resolve().parent / "reports"
+    rep_dir = Path(qlib_dir).resolve().parent / "reports"
     rep_dir.mkdir(parents=True, exist_ok=True)
     tag = ("smoke" if args.smoke else end.date().isoformat()) + f"_h{args.horizon}"
+    if is_full:
+        tag += "_full"
     (rep_dir / f"factor_mining_{tag}.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2))
     (rep_dir / f"factor_mining_{tag}.md").write_text(_md(report))
