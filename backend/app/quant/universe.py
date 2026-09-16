@@ -33,3 +33,51 @@ def write_instruments(codes, path: str, *, start: date, end: date) -> int:
     lines = [f"{to_qlib_symbol(c)}\t{s}\t{e}" for c in codes]
     p.write_text("\n".join(lines) + ("\n" if lines else ""))
     return len(lines)
+
+
+def dynamic_rows(rows, *, cal_start: date, cal_end: date, min_list_days: int = 120,
+                 prefixes: tuple = ("300", "301")) -> list[tuple[str, date, date]]:
+    """按票给出动态起止日(供 qlib instruments 每行 SYMBOL START END):
+    start = max(list_date + min_list_days, cal_start);end = delist_date−1 或 cal_end。
+    只保留代码前缀在 prefixes 的票(空元组=不限);仍按当前名称剔 ST(已知局限)。
+    start > end(次新或早退市)的票丢弃。rows 元素 (code, name, list_date, delist_date|None)。"""
+    from datetime import timedelta
+    out = []
+    for code, name, list_date, delist_date in rows:
+        if prefixes and not code.split(".")[0].startswith(tuple(prefixes)):
+            continue
+        if name and "ST" in name.upper():
+            continue
+        if list_date is None:
+            continue
+        start = max(list_date + timedelta(days=min_list_days), cal_start)
+        end = min(delist_date - timedelta(days=1), cal_end) if delist_date else cal_end
+        if start > end:
+            continue
+        out.append((code, start, end))
+    return out
+
+
+def write_instrument_rows(rows3, path) -> int:
+    """写 qlib instruments:每行 `SYMBOL\\tSTART\\tEND`。返回行数。"""
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    lines = [f"{to_qlib_symbol(c)}\t{s.isoformat()}\t{e.isoformat()}" for c, s, e in rows3]
+    p.write_text("\n".join(lines) + ("\n" if lines else ""))
+    return len(lines)
+
+
+def basic_from_extra_db(db_path: str) -> list[tuple]:
+    """tushare_extra.db.ts_stock_basic → [(code, name, list_date, delist_date|None)],含已退市。"""
+    import sqlite3
+    from datetime import datetime
+
+    def _d(s):
+        return datetime.strptime(s, "%Y%m%d").date() if s else None
+
+    con = sqlite3.connect(db_path)
+    try:
+        cur = con.execute("select ts_code,name,list_date,delist_date from ts_stock_basic")
+        return [(code, name, _d(ld), _d(dd)) for code, name, ld, dd in cur]
+    finally:
+        con.close()
