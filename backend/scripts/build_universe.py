@@ -33,6 +33,8 @@ def main():
     p.add_argument("--prefix", default="300,301",
                    help="--dynamic 时的代码前缀过滤,空=全市场")
     p.add_argument("--extra-db", default="./data/tushare_extra.db")
+    p.add_argument("--index", default="",
+                   help="按 ts_index_weight 月度成分做动态池,如 000300.SH / 000905.SH / 000852.SH")
     args = p.parse_args()
 
     s = get_settings()
@@ -45,6 +47,18 @@ def main():
     all_txt = (qlib_dir / "instruments" / "all.txt").read_text().splitlines()
     in_db = {from_qlib_symbol(ln.split("\t")[0]) for ln in all_txt if ln.strip()}
     path = qlib_dir / "instruments" / f"{args.name}.txt"
+
+    if args.index:
+        from app.quant.universe import (index_member_rows, index_snapshots_from_extra_db,
+                                        write_instrument_rows)
+        snaps = index_snapshots_from_extra_db(args.extra_db, args.index)
+        rows3 = [r for r in index_member_rows(snaps, cal_end=end)
+                 if r[0] in in_db and r[2] >= start]
+        rows3 = [(c, max(s_, start), e) for c, s_, e in rows3]
+        n = write_instrument_rows(rows3, path)
+        print(f"UNIVERSE_DONE name={args.name} index={args.index} snapshots={len(snaps)} "
+              f"rows={n} codes={len({c for c, _, _ in rows3})} -> {path}", flush=True)
+        return
 
     if args.dynamic:
         from app.quant.universe import dynamic_rows, write_instrument_rows, basic_from_extra_db

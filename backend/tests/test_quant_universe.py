@@ -75,3 +75,15 @@ def test_write_instrument_rows(tmp_path):
     n = write_instrument_rows([("300001.SZ", date(2011, 1, 4), date(2026, 9, 15))], p)
     assert n == 1
     assert p.read_text() == "SZ300001\t2011-01-04\t2026-09-15\n"
+
+
+def test_index_member_rows_merges_consecutive_snapshots():
+    from datetime import date
+    from app.quant.universe import index_member_rows
+    snaps = [("20240131", "A"), ("20240131", "B"),
+             ("20240229", "A"),                       # B 2 月被剔除
+             ("20240331", "A"), ("20240331", "B")]    # B 3 月回来
+    rows = index_member_rows(snaps, cal_end=date(2024, 4, 15))
+    assert rows == [("A", date(2024, 1, 31), date(2024, 4, 15)),
+                    ("B", date(2024, 1, 31), date(2024, 2, 28)),
+                    ("B", date(2024, 3, 31), date(2024, 4, 15))]

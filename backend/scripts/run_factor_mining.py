@@ -45,6 +45,8 @@ def build_parser():
     p.add_argument("--ic-min", type=float, default=0.02)
     p.add_argument("--ir-min", type=float, default=0.3)
     p.add_argument("--smoke", action="store_true")
+    p.add_argument("--limit", type=int, default=0, help=">0 随机抽 N 只(大池省内存)")
+    p.add_argument("--seed", type=int, default=0)
     p.add_argument("--qlib-dir", default="",
                    help="缺省 settings.qlib_data_dir;研究库传 data/qlib_cn_full(自动长窗)")
     p.add_argument("--long", action="store_true",
@@ -69,6 +71,11 @@ def main():
     end = D.calendar()[-1]
     insts = D.list_instruments(D.instruments(args.universe),
                                as_list=True)
+    if args.limit and len(insts) > args.limit:
+        import random
+        random.Random(args.seed).shuffle(insts)
+        insts = sorted(insts[: args.limit])
+        print(f"sampled {len(insts)} insts (seed={args.seed})", flush=True)
     if args.smoke:
         insts = insts[:300]
         args.is_start, args.split = "2024-01-01", "2024-10-01"

@@ -81,3 +81,41 @@ def basic_from_extra_db(db_path: str) -> list[tuple]:
         return [(code, name, _d(ld), _d(dd)) for code, name, ld, dd in cur]
     finally:
         con.close()
+
+
+def index_member_rows(snapshots, *, cal_end: date) -> list[tuple[str, date, date]]:
+    """月度成分快照 → 每只票的连续成员区间(供 qlib instruments 多行同票)。
+    snapshots: [(trade_date 'YYYYMMDD', con_code)],某快照日在册即视为从该日起到下一快照日前一天在册;
+    最后一次快照延续到 cal_end。相邻区间合并。"""
+    from datetime import datetime, timedelta
+    by_date: dict[str, set] = {}
+    for d, c in snapshots:
+        by_date.setdefault(d, set()).add(c)
+    days = sorted(by_date)
+    parse = lambda s: datetime.strptime(s, "%Y%m%d").date()   # noqa: E731
+    spans: dict[str, list] = {}
+    for i, d in enumerate(days):
+        start = parse(d)
+        end = parse(days[i + 1]) - timedelta(days=1) if i + 1 < len(days) else cal_end
+        for c in by_date[d]:
+            lst = spans.setdefault(c, [])
+            if lst and lst[-1][1] + timedelta(days=1) == start:
+                lst[-1][1] = end                       # 连续 → 合并
+            else:
+                lst.append([start, end])
+    out = []
+    for c in sorted(spans):
+        for s, e in spans[c]:
+            if s <= e:
+                out.append((c, s, e))
+    return out
+
+
+def index_snapshots_from_extra_db(db_path: str, index_code: str) -> list[tuple[str, str]]:
+    import sqlite3
+    con = sqlite3.connect(db_path)
+    try:
+        return con.execute("select trade_date, con_code from ts_index_weight where index_code=?",
+                           (index_code,)).fetchall()
+    finally:
+        con.close()
