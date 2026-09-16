@@ -72,6 +72,48 @@ def export_market_csvs_full(session, codes, start, end, out_dir: str,
     return n
 
 
+def export_market_csvs_bulk(db_path: str, start, end, out_dir: str,
+                            extra_fn=None, codes=None) -> int:
+    """与 export_market_csvs_full 同产物,但一次顺序扫全表再按票分组(研究库 2010 起
+    全导用):逐票查询在冷缓存的机械盘上是随机 4K 读(~60 IOPS,几十小时),
+    顺序扫 + 内存分组只需几分钟。`+trade_date` 禁用索引强制顺序扫。
+    db_path: sqlite 文件路径;codes: 只导这些票(None=全部)。返回写出只数。"""
+    import sqlite3
+    import pandas as pd
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    q = ("select code, trade_date as date, open, high, low, close, vol as volume, "
+         "adj_factor as factor, turnover_rate, volume_ratio, circ_mv, total_mv, pe, pb, amount "
+         "from daily_quotes where +trade_date >= ? and +trade_date <= ?")
+    parts = []
+    for chunk in pd.read_sql_query(q, con, params=(start.isoformat(), end.isoformat()),
+                                   chunksize=1_000_000):
+        chunk["code"] = chunk["code"].astype("category")
+        parts.append(chunk)
+    con.close()
+    if not parts:
+        return 0
+    df = pd.concat(parts, ignore_index=True)
+    del parts
+    df = df.sort_values(["code", "date"], kind="stable")
+    want = set(codes) if codes else None
+    n = 0
+    for code, g in df.groupby("code", sort=False, observed=True):
+        code = str(code)
+        if want is not None and code not in want:
+            continue
+        g = g.drop(columns=["code"]).reset_index(drop=True)[_FULL_COLS]
+        if extra_fn is not None:
+            dates = pd.DatetimeIndex(pd.to_datetime(g["date"]))
+            extra = extra_fn(code, dates)
+            if extra is not None and len(extra):
+                g = pd.concat([g, extra.reset_index(drop=True)], axis=1)
+        g.to_csv(out / f"{to_qlib_symbol(code)}.csv", index=False)
+        n += 1
+    return n
+
+
 def export_csi300_csv(src, start, end, out_dir: str):
     """baostock 指数日线(sh.000300) -> CSV(符号 SH000300, factor=1.0)。
     src: BaostockSource(或任何有 index_daily(bs_code, start, end) 的对象)。"""

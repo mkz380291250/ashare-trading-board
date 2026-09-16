@@ -45,3 +45,36 @@ def test_export_full_merges_extra_columns(tmp_path):
     assert "np_ttm" in df.columns and "mf_net" in df.columns
     assert df["np_ttm"].tolist() == [1.0, 2.0]
     assert pd.isna(df["mf_net"].iloc[0]) and df["mf_net"].iloc[1] == 3.0
+
+
+def test_export_bulk_matches_per_code_export(tmp_path):
+    import pandas as pd
+    from app.db.database import make_engine, make_session_factory, Base
+    from app.db.models import DailyQuote
+    from app.backtest.qlib_data import export_market_csvs_full, export_market_csvs_bulk
+    db = tmp_path / "t.db"
+    eng = make_engine(f"sqlite:///{db}")
+    Base.metadata.create_all(eng)
+    s = make_session_factory(eng)()
+    for code in ["300750.SZ", "000001.SZ"]:
+        for i, d in enumerate([date(2024, 12, 31), date(2025, 1, 2), date(2025, 1, 3)]):
+            c = 10.0 + i
+            s.add(DailyQuote(code=code, trade_date=d, open=c, high=c, low=c, close=c,
+                             vol=100.0, amount=1.0, adj_factor=1.0, pe=None, pb=2.0))
+    s.commit()
+
+    def extra(code, dates):
+        return pd.DataFrame({"np_ttm": [float(len(dates))] * len(dates)}, index=dates)
+
+    a, b = tmp_path / "a", tmp_path / "b"
+    n1 = export_market_csvs_full(s, ["300750.SZ", "000001.SZ"], date(2025, 1, 1),
+                                 date(2025, 1, 31), str(a), extra_fn=extra)
+    n2 = export_market_csvs_bulk(str(db), date(2025, 1, 1), date(2025, 1, 31), str(b),
+                                 extra_fn=extra)
+    assert n1 == n2 == 2
+    for sym in ["SZ300750", "SZ000001"]:
+        x = pd.read_csv(a / f"{sym}.csv")
+        y = pd.read_csv(b / f"{sym}.csv")
+        assert list(x.columns) == list(y.columns)
+        assert len(x) == len(y) == 2                       # 2024-12-31 被 start 过滤
+        pd.testing.assert_frame_equal(x, y, check_dtype=False)
