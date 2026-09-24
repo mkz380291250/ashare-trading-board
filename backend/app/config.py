@@ -47,6 +47,10 @@ class Settings(BaseSettings):
                                            # 趋势型因子时才设 20 开启。
     buy_trend_tol: float = 0.02            # 收盘可低于均线的容差(2% 内仍算不破位)
     rebalance_weekday: int = 0             # 周度再平衡日(0=周一);其余交易日持有不动
+    trend_gate_enabled: bool = True        # 创业板指迟滞趋势闸(2026-09-24 自研策略):
+    trend_gate_index: str = "399006.SZ"    #   收盘 < MA×(1−band) → 当晚清仓、不买;
+    trend_gate_ma: int = 20                #   收盘 > MA×(1+band) → 当晚按因子买回 15 只(不等周一);
+    trend_gate_band: float = 0.03          #   其间沿用上一状态。研究:2022+ 年化 +8.5%→+13.4%,回撤 −41%→−17%
     rebalance_buffer: int = 5             # TopkDropout 缓冲:持仓跌出 topk+buffer 名才卖
     rebalance_n_drop: int = 2             # 每周因排名换出上限(封顶换手);辩论扫雷不受此限
     policy_auto_remine: bool = True        # 因子衰减时自动重挖换产物

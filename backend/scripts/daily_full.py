@@ -126,14 +126,53 @@ def _as_of_for_rebalance(store) -> "date":
     return store.trading_dates(date.today(), 1)[0]
 
 
+def _gate_eval(session, s, as_of):
+    """创业板指迟滞趋势闸:返回 GateEval;关闭或异常(数据不足)→ None(视为常开)。"""
+    if not s.trend_gate_enabled:
+        return None
+    from app.backtest.turtle_data import index_close
+    from app.portfolio.trend_gate import evaluate, load_prev_state
+    try:
+        closes = index_close(s.trend_gate_index)
+        prev = load_prev_state(session, before=as_of)
+        return evaluate(closes, as_of, ma=s.trend_gate_ma, band=s.trend_gate_band, prev_on=prev)
+    except Exception as exc:                        # noqa: BLE001 — 闸失效时退回无闸行为并告警
+        print(f"GATE_ERROR 趋势闸不可用,按常开处理: {exc!r}", flush=True)
+        return None
+
+
 def step_rebalance() -> None:
     s = get_settings()
     session = _session()
     store = QuoteStore(session)
     as_of = _as_of_for_rebalance(store)
-    if not is_rebalance_day(as_of, s.rebalance_weekday):
+    gate = _gate_eval(session, s, as_of)
+    force_buy = False
+    if gate is not None:
+        from app.portfolio.trend_gate import liquidate_all, KIND_ON, KIND_OFF
+        from app.policy.guardrails import record_action, already_recorded
+        print(f"GATE {as_of} {gate.summary()}", flush=True)
+        if gate.changed or gate.prev_on is None:
+            kind = KIND_ON if gate.on else KIND_OFF
+            if not already_recorded(session, kind, as_of):
+                record_action(session, kind, as_of,
+                              {"close": gate.close, "ma": gate.ma, "ratio": gate.ratio,
+                               "index": s.trend_gate_index, "ma_n": s.trend_gate_ma,
+                               "band": s.trend_gate_band},
+                              f"创业板指趋势闸{'开' if gate.on else '关'}:{gate.summary()}")
+        if not gate.on:
+            positions = session.scalars(select(Position).where(Position.account_id == 1)).all()
+            sold = liquidate_all(session, PaperBroker(session), positions,
+                                 lambda c: latest_close(store, c, as_of), as_of)
+            print(build_daily_summary(session, as_of, account_id=1), flush=True)
+            print(f"REBALANCE_DONE {{'gate': 'OFF', 'sold': {sold}, 'bought': []}}", flush=True)
+            return
+        force_buy = gate.changed                    # 关→开:当晚买回,不等周一
+    if not force_buy and not is_rebalance_day(as_of, s.rebalance_weekday):
         print(f"REBALANCE_SKIP 非再平衡日 {as_of}(weekday={as_of.weekday()})", flush=True)
         return
+    if force_buy:
+        print("GATE_REENTRY 闸关→开,当晚按因子分建仓", flush=True)
     top_date = session.scalar(select(func.max(DiscoveryPick.as_of)))
     if top_date != as_of:
         raise RuntimeError(
