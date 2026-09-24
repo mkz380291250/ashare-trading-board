@@ -132,3 +132,30 @@ def test_metrics_basic():
     assert m["profit_factor"] > 1 and m["exposure"] > 0
     m2 = metrics(res, p.dates, np.zeros(len(p.dates)))
     assert m2["excess_ann"] == pytest.approx(m2["ann"])
+
+
+def test_panel_from_frames_adjusts_and_limits():
+    from app.backtest.turtle_data import panel_from_frames
+    days = pd.bdate_range("2020-08-20", periods=25)
+    rows, srows = [], []
+    for i, d in enumerate(days):
+        for code, base, f in (("SZ300001", 10.0, 2.0), ("SH600000", 20.0, 1.0)):
+            if code == "SH600000" and i == 3:
+                continue                                     # 缺一天
+            rows.append((d, code, base, base + 1, base - 1, base + 0.5, f, base, base + 2))
+            srows.append((d, code, 1.0 if code == "SZ300001" else 0.5))
+    px = pd.DataFrame(rows, columns=["datetime", "instrument", "open", "high", "low", "close",
+                                     "factor", "pre_close", "hi20_raw"]).set_index(["datetime", "instrument"])
+    sc = pd.DataFrame(srows, columns=["datetime", "instrument", "score"]).set_index(["datetime", "instrument"])
+    p = panel_from_frames(px, sc)
+    j = p.codes.index("SZ300001"); k = p.codes.index("SH600000")
+    assert p.close[0, j] == pytest.approx(21.0)               # 10.5 × 2
+    assert p.raw_open[0, j] == pytest.approx(10.0)
+    assert p.hi20[0, j] == pytest.approx(24.0)
+    assert np.isnan(p.atr[18, j]) and not np.isnan(p.atr[19, j])   # 第 20 天起有 ATR
+    assert p.atr[19, j] == pytest.approx(2 * max(2.0, 1.5, 0.5))   # TR=(high-low)=2 → 复权 ×2
+    assert np.isnan(p.close[3, k]) and np.isnan(p.score[3, k])
+    assert p.limit[0, j] == pytest.approx(0.1) and p.limit[2, j] == pytest.approx(0.2)  # 08-24 起 20%
+    assert p.limit[:, k].max() == pytest.approx(0.1)
+    p2 = panel_from_frames(px, sc, start="2020-09-01")
+    assert len(p2.dates) == len([d for d in days if d >= pd.Timestamp("2020-09-01")])
