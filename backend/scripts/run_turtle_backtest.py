@@ -28,16 +28,22 @@ _PANEL = None                       # fork 后子进程共享
 
 
 def build_grid(kind: str, slots: int) -> list[Params]:
-    entries = ["factor", "breakout"]
+    """full: 进场 factor/breakout20 × 无闸;v2: 进场 (factor×gate none/all)+(breakout 20/55 × gate none/entry/all)。"""
     holds = [20, 40, 0]
     fixed = [(sl, rr) for sl in (0.04, 0.06, 0.08, 0.10) for rr in (1.5, 2.0, 3.0)]
     atr = [(2.0, kt) for kt in (2.0, 3.0)]
+    variants = [("factor", 20, "none"), ("breakout", 20, "none")]
+    if kind == "v2":
+        variants = [("factor", 20, "none"), ("factor", 20, "all")] + \
+                   [("breakout", n, g) for n in (20, 55) for g in ("none", "entry", "all")]
     if kind == "small":
-        entries, holds, fixed, atr = ["factor"], [0], [(0.06, 2.0)], [(2.0, 2.0)]
+        variants, holds, fixed, atr = [("breakout", 55, "all")], [0], [(0.06, 2.0)], [(2.0, 2.0)]
     out = []
-    for e, h in itertools.product(entries, holds):
-        out += [Params(entry=e, exit="fixed", sl=sl, rr=rr, max_hold=h, slots=slots) for sl, rr in fixed]
-        out += [Params(entry=e, exit="atr", k_stop=ks, k_trail=kt, max_hold=h, slots=slots) for ks, kt in atr]
+    for (e, n, g), h in itertools.product(variants, holds):
+        out += [Params(entry=e, breakout_n=n, gate=g, exit="fixed", sl=sl, rr=rr, max_hold=h, slots=slots)
+                for sl, rr in fixed]
+        out += [Params(entry=e, breakout_n=n, gate=g, exit="atr", k_stop=ks, k_trail=kt, max_hold=h, slots=slots)
+                for ks, kt in atr]
     return out
 
 
@@ -127,11 +133,17 @@ def render_md(rep: dict) -> str:
             pos = sum(1 for m in oos if m["ann"] > 0)
             L.append(f"- {len(oos)} 组有交易,OOS 年化为正 {pos} 组,Calmar>0.5 {sum(1 for m in oos if m['calmar'] > 0.5)} 组,"
                      f"盈利因子中位 {np.median([m['profit_factor'] for m in oos]):.2f},胜率中位 {np.median([m['win_rate'] for m in oos]):.0%}")
-            for e in ("factor", "breakout"):
-                sub = [r["oos"] for r in blk["rows"] if r["params"]["entry"] == e and r["oos"].get("n_trades", 0) > 0]
+            keys = sorted({(r["params"]["entry"], r["params"]["breakout_n"], r["params"]["gate"]) for r in blk["rows"]})
+            for e, n, g in keys:
+                sub = [r["oos"] for r in blk["rows"] if (r["params"]["entry"], r["params"]["breakout_n"], r["params"]["gate"]) == (e, n, g)
+                       and r["oos"].get("n_trades", 0) > 0]
+                subi = [r["is"] for r in blk["rows"] if (r["params"]["entry"], r["params"]["breakout_n"], r["params"]["gate"]) == (e, n, g)
+                        and r["is"].get("n_trades", 0) > 0]
                 if sub:
-                    L.append(f"  - 进场 {e}:年化中位 {np.median([m['ann'] for m in sub]):+.1%},"
-                             f"回撤中位 {np.median([m['mdd'] for m in sub]):.1%},盈利因子中位 {np.median([m['profit_factor'] for m in sub]):.2f}")
+                    name = e if e == "factor" else f"{e}{n}"
+                    L.append(f"  - {name} gate={g}:IS 年化中位 {np.median([m['ann'] for m in subi]) if subi else 0:+.1%} | "
+                             f"OOS 年化中位 {np.median([m['ann'] for m in sub]):+.1%},回撤中位 {np.median([m['mdd'] for m in sub]):.1%},"
+                             f"盈利因子中位 {np.median([m['profit_factor'] for m in sub]):.2f},正收益 {sum(m['ann'] > 0 for m in sub)}/{len(sub)}")
         L.append("")
         L.append("### 最优组 OOS 前 10 笔交易")
         for t in blk["top_is"][0]["trades_oos"][:10] if blk["top_is"] else []:
@@ -150,7 +162,8 @@ def main():
     p.add_argument("--split", default="2022-01-01")
     p.add_argument("--end", default="")
     p.add_argument("--slots", type=int, default=3)
-    p.add_argument("--grid", choices=["full", "small"], default="full")
+    p.add_argument("--grid", choices=["full", "v2", "small"], default="full")
+    p.add_argument("--gate-ma", type=int, default=20, help="趋势闸:基准指数收盘 > MA(N)")
     p.add_argument("--workers", type=int, default=3)
     p.add_argument("--bench", default="399006.SZ")
     p.add_argument("--extra-db", default="data/tushare_extra.db")
@@ -169,6 +182,11 @@ def main():
         t0 = time.time()
         _PANEL = load_panel(qlib_dir, args.universe, fz, args.start, args.end or None)
         dates = pd.DatetimeIndex(_PANEL.dates)
+        from app.backtest.turtle_data import index_close, gate_from_index
+        idx = index_close(args.bench, args.extra_db)
+        _PANEL.gate = gate_from_index(idx, dates, args.gate_ma)
+        print(f"  gate MA{args.gate_ma} on {args.bench}: open {_PANEL.gate.mean():.0%} of days, "
+              f"index through {idx.index[-1].date()}", flush=True)
         rep["end"] = str(dates[-1].date())
         split_i = int(np.searchsorted(dates, pd.Timestamp(args.split)))
         bench = bench_daily(args.extra_db, args.bench, dates)

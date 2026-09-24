@@ -23,6 +23,8 @@ class Params:
     max_hold: int = 0              # 0=不限
     slots: int = 3
     top_n: int = 30                # breakout: 因子前 N
+    breakout_n: int = 20           # breakout: 新高窗口 20 | 55(Panel 需有 hi55)
+    gate: str = "none"             # none | entry(闸关时不开新仓) | all(闸关时次日开盘清仓且不开仓)
     cost: float = 0.0015
     cash: float = 1_000_000.0
     limit_tol: float = 0.005       # 涨跌停判定容差
@@ -30,7 +32,9 @@ class Params:
     def label(self) -> str:
         ex = (f"sl{self.sl:.2f}_rr{self.rr:g}" if self.exit == "fixed"
               else f"atr{self.k_stop:g}_trail{self.k_trail:g}")
-        return f"{self.entry}|{self.exit}:{ex}|hold{self.max_hold or 'inf'}"
+        en = self.entry if self.entry == "factor" else f"{self.entry}{self.breakout_n}"
+        g = "" if self.gate == "none" else f"|gate-{self.gate}"
+        return f"{en}{g}|{self.exit}:{ex}|hold{self.max_hold or 'inf'}"
 
 
 @dataclass
@@ -75,6 +79,8 @@ class Panel:
     atr: np.ndarray
     hi20: np.ndarray
     limit: np.ndarray
+    hi55: np.ndarray | None = None
+    gate: np.ndarray | None = None          # (T,) bool:指数在均线上方=True;None=常开
     _last_valid: np.ndarray = field(default=None, repr=False)
 
     def last_valid(self) -> np.ndarray:
@@ -113,7 +119,7 @@ def _pick(panel: Panel, t: int, held: set, p: Params) -> int | None:
     if p.entry == "breakout":
         order = np.argsort(-np.nan_to_num(s, nan=-np.inf))[: p.top_n]
         order = [j for j in order if not np.isnan(s[j])]
-        hi = panel.hi20[t]
+        hi = panel.hi20[t] if p.breakout_n == 20 else panel.hi55[t]
         c = panel.close[t]
         for j in order:                      # 已按分数降序
             if not np.isnan(hi[j]) and c[j] > hi[j]:
@@ -139,7 +145,14 @@ def run_turtle(panel: Panel, p: Params) -> Result:
         cash += h.shares * px * (1.0 - p.cost)
         trades.append(Trade(panel.codes[h.j], h.entry_i, h.entry_px, i, px, h.shares, reason))
 
+    gate = panel.gate if (p.gate != "none" and panel.gate is not None) else None
+
     for t in range(T):
+        # 0) 趋势闸关(以昨日收盘判定)→ 全部标记次日开盘清仓
+        if gate is not None and p.gate == "all" and t > 0 and not gate[t - 1]:
+            for h in holds:
+                if h.entry_i < t and h.pending is None:
+                    h.pending = "gate"
         # 1) 退出
         keep = []
         for h in holds:
@@ -222,7 +235,7 @@ def run_turtle(panel: Panel, p: Params) -> Result:
         prev_nav = nav[t]
 
         # 4) 收盘后生成明日意向
-        if len(holds) < p.slots and t < T - 1:
+        if len(holds) < p.slots and t < T - 1 and (gate is None or gate[t]):
             intent = _pick(panel, t, {h.j for h in holds}, p)
 
     # 期末强平
@@ -267,7 +280,7 @@ def metrics(res: Result, dates, bench_ret=None, lo: int = 0, hi: int | None = No
         "exposure": round(float(res.exposure[lo:hi].mean()), 3),
         "cum": round(float(nav[-1] - 1.0), 4),
         "reasons": {k: int(sum(1 for t in trades if t.reason == k))
-                    for k in ("stop", "tp", "trail", "time", "end")},
+                    for k in ("stop", "tp", "trail", "time", "gate", "end")},
     }
     if bench_ret is not None:
         b = np.asarray(bench_ret)[lo:hi]

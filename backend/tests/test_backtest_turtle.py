@@ -159,3 +159,34 @@ def test_panel_from_frames_adjusts_and_limits():
     assert p.limit[:, k].max() == pytest.approx(0.1)
     p2 = panel_from_frames(px, sc, start="2020-09-01")
     assert len(p2.dates) == len([d for d in days if d >= pd.Timestamp("2020-09-01")])
+
+
+def test_gate_entry_blocks_new_positions_only():
+    p = _panel()
+    p.gate = np.ones(30, dtype=bool)
+    p.gate[2:] = False                                    # 第 2 天起闸关
+    res = run_turtle(p, Params(slots=3, sl=0.5, rr=100, gate="entry"))
+    ts = sorted(res.trades, key=lambda t: t.entry_i)
+    assert [t.entry_i for t in ts] == [1, 2]              # 第 0/1 天信号成交;第 2 天起不再选
+    assert all(t.reason == "end" for t in ts)             # entry 模式不清仓
+
+
+def test_gate_all_liquidates_next_open_and_reopens():
+    p = _panel()
+    p.gate = np.ones(30, dtype=bool)
+    p.gate[5:10] = False                                  # 5..9 闸关
+    res = run_turtle(p, Params(slots=1, sl=0.5, rr=100, gate="all"))
+    ts = sorted(res.trades, key=lambda t: t.entry_i)
+    assert (ts[0].entry_i, ts[0].exit_i, ts[0].reason) == (1, 6, "gate")   # 第 5 天收盘闸关→第 6 天开盘清
+    assert ts[1].entry_i == 11                            # 第 10 天闸开重新选→第 11 天买
+
+
+def test_breakout_55_uses_hi55():
+    p = _panel()
+    p.hi20[:, :] = 9.0                                    # 20 日窗口人人突破
+    p.hi55 = np.full((30, 3), 10.5, dtype="float32")      # 55 日窗口无人突破
+    res = run_turtle(p, Params(slots=1, entry="breakout", breakout_n=55, sl=0.5, rr=100))
+    assert res.trades == []
+    p.close[4, 1] = 10.6
+    res = run_turtle(p, Params(slots=1, entry="breakout", breakout_n=55, sl=0.5, rr=100))
+    assert res.trades[0].code == "S1" and res.trades[0].entry_i == 5
