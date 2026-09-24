@@ -24,8 +24,8 @@ from app.data.financials_update import update_financials, baostock_fetch_fn
 
 def listed_codes(session) -> list[str]:
     last = session.scalar(select(func.max(DailyQuote.trade_date)))
-    return sorted(session.scalars(
-        select(distinct(DailyQuote.code)).where(DailyQuote.trade_date == last)).all())
+    codes = session.scalars(select(distinct(DailyQuote.code)).where(DailyQuote.trade_date == last)).all()
+    return sorted(c for c in codes if c.endswith((".SH", ".SZ")))   # baostock 无北交所(.BJ)
 
 
 def main():
