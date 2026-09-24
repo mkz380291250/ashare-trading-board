@@ -109,6 +109,7 @@ def run(score: pd.DataFrame, ret: pd.DataFrame, bench: pd.Series, start: str, to
         "weekly_turnover": round(float(np.mean(turns)) if turns else 0.0, 3),
         "gate_closed_share": round(gate_days / max(len(dates), 1), 3),
         "days": int(len(s)),
+        "_daily": s,                        # 日收益序列(不入 json,供组合层研究复用)
     }
 
 
@@ -160,7 +161,7 @@ def main():
         m = run(score, ret, bench, args.start, args.topk, n_drop=args.n_drop, buffer=args.buffer,
                 gate=gate, gate_mode=args.trend_mode)
         name = Path(path).stem
-        out[name] = m
+        out[name] = {k: v for k, v in m.items() if not k.startswith("_")}
         mode = f"drop{args.n_drop}buf{args.buffer}" if args.n_drop else "full"
         if args.trend_ma:
             mode += f"+ma{args.trend_ma}{args.trend_mode}"
