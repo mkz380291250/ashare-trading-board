@@ -32,16 +32,28 @@ def bench_returns(db_path: str, code: str) -> pd.Series:
 
 
 def run(score: pd.DataFrame, ret: pd.DataFrame, bench: pd.Series, start: str, topk: int,
-        n_drop: int = 0, buffer: int = 0) -> dict:
+        n_drop: int = 0, buffer: int = 0, gate: pd.Series | None = None, gate_mode: str = "exit") -> dict:
     """score/ret: datetime x instrument。n_drop=0 → 每周整体换成 topK(全换);
     n_drop>0 → 生产式 TopkDropout:持仓跌出 topK+buffer 才卖、每周最多换出 n_drop 只,
     再从未持有的最高分补齐到 K。返回指标 dict(含周均换手)。"""
     dates = [d for d in ret.index if d >= pd.Timestamp(start)]
     hold, week, turn = [], None, 0.0
     daily, turns = {}, []
+    gate_days = 0
     for d in dates:
         wk = d.isocalendar()[:2]
-        if wk != week:
+        # 趋势闸:以上一交易日指数状态判定;exit=闸关清仓且不买,freeze=闸关不买新但持有
+        g_open = True
+        if gate is not None:
+            prev_g = gate.index[gate.index < d]
+            g_open = bool(gate.loc[prev_g[-1]]) if len(prev_g) else True
+        if not g_open:
+            gate_days += 1
+            if gate_mode == "exit" and hold:
+                turn = len(hold) / max(topk, 1)
+                turns.append(turn)
+                hold = []
+        if wk != week and g_open:
             week = wk
             prev = score.index[score.index < d]
             if len(prev):
@@ -95,6 +107,7 @@ def run(score: pd.DataFrame, ret: pd.DataFrame, bench: pd.Series, start: str, to
         "excess_pos_year_share": round(sum(v > 0 for v in ex_year.values()) / len(ex_year), 3),
         "monthly_win_vs_bench": round(float((monthly > bm.reindex(monthly.index).fillna(0)).mean()), 3),
         "weekly_turnover": round(float(np.mean(turns)) if turns else 0.0, 3),
+        "gate_closed_share": round(gate_days / max(len(dates), 1), 3),
         "days": int(len(s)),
     }
 
@@ -109,6 +122,9 @@ def main():
     p.add_argument("--topk", type=int, default=15)
     p.add_argument("--n-drop", type=int, default=0, help=">0 生产式 TopkDropout(每周最多换出 N 只)")
     p.add_argument("--buffer", type=int, default=0, help="持仓跌出 topK+buffer 才卖")
+    p.add_argument("--trend-ma", type=int, default=0, help=">0 用基准指数 MA(N) 做趋势闸")
+    p.add_argument("--trend-mode", choices=["exit", "freeze"], default="exit",
+                   help="exit=闸关清仓;freeze=闸关不买新但持有")
     p.add_argument("--extra-db", default="data/tushare_extra.db")
     p.add_argument("--json", default="")
     args = p.parse_args()
@@ -129,6 +145,11 @@ def main():
     px.columns = ["adj"]
     ret = px["adj"].unstack(0).pct_change(fill_method=None)
     bench = bench_returns(args.extra_db, args.bench)
+    gate = None
+    if args.trend_ma > 0:
+        from app.backtest.turtle_data import index_close
+        idx = index_close(args.bench, args.extra_db)
+        gate = idx > idx.rolling(args.trend_ma, min_periods=args.trend_ma).mean()
     out = {}
     for path in args.frozen.split(","):
         ff = load_frozen(path)
@@ -136,10 +157,13 @@ def main():
                         start_time=feat_start, end_time=end)
         df.columns = list(ff.factors)
         score = composite_score(to_datetime_instrument(df), ff.signs, ff.weights)["score"].unstack(1)
-        m = run(score, ret, bench, args.start, args.topk, n_drop=args.n_drop, buffer=args.buffer)
+        m = run(score, ret, bench, args.start, args.topk, n_drop=args.n_drop, buffer=args.buffer,
+                gate=gate, gate_mode=args.trend_mode)
         name = Path(path).stem
         out[name] = m
         mode = f"drop{args.n_drop}buf{args.buffer}" if args.n_drop else "full"
+        if args.trend_ma:
+            mode += f"+ma{args.trend_ma}{args.trend_mode}"
         print(f"{name:26s} @{args.universe:14s} {args.start}~ top{args.topk} {mode} vs {args.bench}: "
               f"年化 {m['ann']:+.1%} 回撤 {m['mdd']:.1%} 超额IR {m['excess_ir']:+.2f} Calmar {m['calmar']:.2f} "
               f"累计 {m['cum']:+.1%}(基准 {m['bench_cum']:+.1%}) 最差年 {m['worst_year']:+.1%} "
@@ -150,6 +174,7 @@ def main():
         Path(args.json).write_text(json.dumps({"universe": args.universe, "start": args.start,
                                                "bench": args.bench, "topk": args.topk,
                                                "n_drop": args.n_drop, "buffer": args.buffer,
+                                               "trend_ma": args.trend_ma, "trend_mode": args.trend_mode,
                                                "results": out}, ensure_ascii=False, indent=1))
     print("SIMPLE_BT_DONE", flush=True)
 
