@@ -167,7 +167,7 @@ def main():
         print(f"{name:26s} @{args.universe:14s} {args.start}~ top{args.topk} {mode} vs {args.bench}: "
               f"年化 {m['ann']:+.1%} 回撤 {m['mdd']:.1%} 超额IR {m['excess_ir']:+.2f} Calmar {m['calmar']:.2f} "
               f"累计 {m['cum']:+.1%}(基准 {m['bench_cum']:+.1%}) 最差年 {m['worst_year']:+.1%} "
-              f"正年 {m['pos_year_share']:.0%} 超额正年 {m['excess_pos_year_share']:.0%} 月胜率 {m['monthly_win_vs_bench']:.0%} 周换手 {m['weekly_turnover']:.0%}",
+              f"正年 {m['pos_year_share']:.0%} 超额正年 {m['excess_pos_year_share']:.0%} 月胜率 {m['monthly_win_vs_bench']:.0%} 周换手 {m['weekly_turnover']:.0%} 空仓日 {m['gate_closed_share']:.0%}",
               flush=True)
         print(f"    逐年 {m['years']}", flush=True)
     if args.json:
